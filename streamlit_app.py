@@ -108,24 +108,42 @@ class ProductBenchmarkAnalyzer:
         
         self.results = []
         
-    def extract_content_from_url(self, url):
+    def extract_content_from_url(self, url, rotate_headers=False):
         """Extrae contenido relevante de una URL de producto"""
         try:
-            # Headers más sofisticados para evitar detección de bot
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'Cache-Control': 'max-age=0'
-            }
+            # Headers base más sofisticados
+            headers_options = [
+                {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1'
+                },
+                {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'es-es',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive'
+                },
+                {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'es,en-US;q=0.7,en;q=0.3',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Connection': 'keep-alive'
+                }
+            ]
+            
+            # Seleccionar headers
+            if rotate_headers:
+                import random
+                headers = random.choice(headers_options)
+            else:
+                headers = headers_options[0]
             
             # Usar session para mantener cookies
             session = requests.Session()
@@ -133,18 +151,24 @@ class ProductBenchmarkAnalyzer:
             
             response = session.get(url, timeout=20, allow_redirects=True)
             
-            # Si obtenemos 403, intentamos con diferentes estrategias
+            # Si obtenemos 403, intentamos estrategias adicionales
             if response.status_code == 403:
-                # Estrategia alternativa
-                alternative_headers = {
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'es-ES,es;q=0.5'
+                # Estrategia 1: Headers mínimos
+                minimal_headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
                 }
                 session.headers.clear()
-                session.headers.update(alternative_headers)
-                time.sleep(2)
+                session.headers.update(minimal_headers)
+                time.sleep(3)
                 response = session.get(url, timeout=20, allow_redirects=True)
+                
+                # Estrategia 2: Si sigue fallando, probar con otro user-agent
+                if response.status_code == 403:
+                    session.headers.update({
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+                    })
+                    time.sleep(5)
+                    response = session.get(url, timeout=20, allow_redirects=True)
             
             response.raise_for_status()
             
@@ -166,7 +190,16 @@ class ProductBenchmarkAnalyzer:
             
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 403:
-                st.warning(f"🚫 Acceso denegado a {urlparse(url).netloc} - El sitio bloquea bots automáticos")
+                domain = urlparse(url).netloc
+                st.warning(f"🚫 Acceso denegado a {domain}")
+                
+                # Sugerir alternativas específicas
+                if 'mediamarkt' in domain.lower():
+                    st.info("💡 **Alternativa para MediaMarkt:** Busca el mismo producto en Amazon o eBay")
+                elif 'pccomponentes' in domain.lower():
+                    st.info("💡 **Alternativa para PCComponentes:** Prueba con Amazon o tiendas especializadas")
+                elif 'elcorteingles' in domain.lower():
+                    st.info("💡 **Alternativa para El Corte Inglés:** Busca en Amazon o tiendas del fabricante")
             else:
                 st.warning(f"⚠️ Error HTTP {e.response.status_code} con {url[:50]}...")
             return None
@@ -581,19 +614,24 @@ def main():
     delay = st.sidebar.slider("⏱️ Delay entre requests (seg)", 0.5, 5.0, 2.0, 0.5)
     
     # Opciones para sitios problemáticos
-    st.sidebar.markdown("**🛡️ Anti-detección:**")
+    st.sidebar.markdown("**🛡️ Configuración Anti-detección:**")
     retry_403 = st.sidebar.checkbox("🔄 Reintentar URLs bloqueadas", value=True)
     
     aggressive_mode = st.sidebar.checkbox("🚀 Modo agresivo", value=False,
                                         help="Delays más largos y más reintentos")
     
+    # Nueva opción para rotación de User-Agents
+    rotate_headers = st.sidebar.checkbox("🔄 Rotar User-Agents", value=False,
+                                       help="Cambia headers entre requests (más lento)")
+    
     if aggressive_mode:
         delay = max(delay, 3.0)
     
     st.sidebar.markdown("---")
-    st.sidebar.markdown("💡 **Tips:**")
-    st.sidebar.markdown("- Activa modo agresivo para sitios problemáticos")
-    st.sidebar.markdown("- Usa delays de 3-5 seg para evitar bloqueos")
+    st.sidebar.markdown("💡 **Alternativas recomendadas:**")
+    st.sidebar.markdown("- Usar APIs oficiales cuando estén disponibles")
+    st.sidebar.markdown("- Contactar directamente con retailers")
+    st.sidebar.markdown("- Usar herramientas de monitorización comerciales")
     
     # Input de URLs
     st.header("🔗 URLs de Productos a Analizar")
@@ -685,7 +723,7 @@ https://www.amazon.es/dp/B08CH7RHDP""",
                 current_delay = delay * 1.5 if aggressive_mode else delay
                 time.sleep(current_delay)
             
-            data = analyzer.extract_content_from_url(url)
+            data = analyzer.extract_content_from_url(url, rotate_headers)
             if data:
                 all_data.append(data)
                 success_metric.metric("✅ Exitosos", len(all_data))
@@ -695,9 +733,9 @@ https://www.amazon.es/dp/B08CH7RHDP""",
                 
                 # Si está activado el retry y falló, intentar una vez más
                 if retry_403 and failed_count <= 3:
-                    status_text.markdown(f'🔄 **Reintentando URL bloqueada...**')
-                    time.sleep(5)
-                    retry_data = analyzer.extract_content_from_url(url)
+                    status_text.markdown(f'🔄 **Reintentando con estrategia alternativa...**')
+                    time.sleep(8)  # Pausa más larga
+                    retry_data = analyzer.extract_content_from_url(url, True)  # Forzar rotación
                     if retry_data:
                         all_data.append(retry_data)
                         success_metric.metric("✅ Exitosos", len(all_data))
@@ -728,6 +766,12 @@ https://www.amazon.es/dp/B08CH7RHDP""",
             - Tiendas especializadas más pequeñas
             - Sitios web de fabricantes
             - Marketplaces menos restrictivos
+            
+            **🔧 Soluciones alternativas:**
+            - Buscar el mismo producto en sitios más permisivos
+            - Usar herramientas comerciales de monitorización (SimilarWeb, SEMrush)
+            - Contactar directamente con los retailers para acceso a APIs
+            - Usar servicios de proxy comerciales (para uso empresarial)
             """)
             return
         
