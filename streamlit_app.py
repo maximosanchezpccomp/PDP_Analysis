@@ -7,13 +7,26 @@ import re
 from urllib.parse import urlparse, urljoin
 import time
 import nltk
-from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import seaborn as sns
-from textblob import TextBlob
 import plotly.express as px
 import plotly.graph_objects as go
 import warnings
+
+# Importar wordcloud de forma opcional
+try:
+    from wordcloud import WordCloud
+    WORDCLOUD_AVAILABLE = True
+except ImportError:
+    WORDCLOUD_AVAILABLE = False
+    st.warning("⚠️ WordCloud no está disponible. Las nubes de palabras estarán deshabilitadas.")
+
+# Importar textblob de forma opcional
+try:
+    from textblob import TextBlob
+    TEXTBLOB_AVAILABLE = True
+except ImportError:
+    TEXTBLOB_AVAILABLE = False
 
 # Suprimir advertencias
 warnings.filterwarnings('ignore')
@@ -429,8 +442,14 @@ def main():
                                         help="Identifica los filtros de navegación más comunes")
     analyze_features = st.sidebar.checkbox("⭐ Características más mencionadas", value=True,
                                          help="Extrae las features más destacadas")
-    show_wordcloud = st.sidebar.checkbox("☁️ Nube de palabras", value=True,
-                                       help="Genera visualización de nube de palabras")
+    
+    # Solo mostrar opción de wordcloud si está disponible
+    if WORDCLOUD_AVAILABLE:
+        show_wordcloud = st.sidebar.checkbox("☁️ Nube de palabras", value=True,
+                                           help="Genera visualización de nube de palabras")
+    else:
+        show_wordcloud = False
+        st.sidebar.info("☁️ Nube de palabras no disponible")
     
     st.sidebar.markdown("---")
     
@@ -780,7 +799,7 @@ https://www.elcorteingles.es/producto-ejemplo-4""",
             st.header("📈 Visualizaciones Adicionales")
             
             # Nube de palabras
-            if show_wordcloud and analyze_terms:
+            if show_wordcloud and analyze_terms and WORDCLOUD_AVAILABLE:
                 st.subheader("☁️ Nube de Palabras")
                 
                 terms = analyzer.analyze_terms(all_data)
@@ -809,6 +828,24 @@ https://www.elcorteingles.es/producto-ejemplo-4""",
                         st.info("Mostrando términos en formato de tabla como alternativa:")
                         terms_df = pd.DataFrame(terms.most_common(50), columns=['Término', 'Frecuencia'])
                         st.dataframe(terms_df)
+            elif show_wordcloud and analyze_terms and not WORDCLOUD_AVAILABLE:
+                st.subheader("📊 Términos Principales (WordCloud no disponible)")
+                terms = analyzer.analyze_terms(all_data)
+                if terms:
+                    terms_df = pd.DataFrame(terms.most_common(50), columns=['Término', 'Frecuencia'])
+                    
+                    # Crear gráfico de barras como alternativa
+                    fig = px.bar(
+                        terms_df.head(20),
+                        x='Frecuencia',
+                        y='Término',
+                        orientation='h',
+                        title="Top 20 Términos Más Frecuentes",
+                        color='Frecuencia',
+                        color_continuous_scale='viridis'
+                    )
+                    fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
             
             # Análisis comparativo entre productos
             st.subheader("📊 Análisis Comparativo")
