@@ -1,26 +1,4 @@
-if not all_data:
-            st.error("❌ No se pudo extraer información de ninguna URL.")
-            
-            # Información específica sobre sitios problemáticos
-            st.info("""
-            💡 **Sitios con protección anti-bot detectados:**
-            
-            **MediaMarkt, PCComponentes, El Corte Inglés** y otros grandes retailers
-            suelen bloquear scraping automático por políticas de seguridad.
-            
-            **Alternativas recomendadas:**
-            - Usa URLs de Amazon (menos restrictivo)
-            - Prueba con tiendas online más pequeñas
-            - Activa el "Modo agresivo" en configuración avanzada
-            - Aumenta el delay entre requests a 3-5 segundos
-            
-            **URLs que suelen funcionar mejor:**
-            - amazon.es, amazon.com
-            - Tiendas especializadas más pequeñas
-            - Sitios web de fabricantes
-            - Marketplaces menos restrictivos
-            """)
-            returnimport streamlit as st
+import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -114,11 +92,7 @@ class ProductBenchmarkAnalyzer:
                 'inicio', 'home', 'tienda', 'shop', 'store', 'online',
                 'web', 'website', 'pagina', 'página', 'sitio', 'portal',
                 'cookies', 'politica', 'política', 'privacidad', 'terminos', 'términos',
-                'condiciones', 'legal', 'aviso', 'contacto', 'ayuda', 'soporte',
-                'nuevo', 'nueva', 'nuevos', 'nuevas', 'usado', 'usada', 'segunda', 'mano',
-                'días', 'dia', 'día', 'horas', 'hora', 'minutos', 'minuto',
-                'lunes', 'martes', 'miercoles', 'miércoles', 'jueves', 'viernes', 'sabado', 'sábado', 'domingo',
-                'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+                'condiciones', 'legal', 'aviso', 'contacto', 'ayuda', 'soporte'
             ])
             
             try:
@@ -150,41 +124,27 @@ class ProductBenchmarkAnalyzer:
                 'Sec-Fetch-Mode': 'navigate',
                 'Sec-Fetch-Site': 'none',
                 'Sec-Fetch-User': '?1',
-                'Cache-Control': 'max-age=0',
-                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"'
+                'Cache-Control': 'max-age=0'
             }
             
             # Usar session para mantener cookies
             session = requests.Session()
             session.headers.update(headers)
             
-            # Primera petición para establecer cookies si es necesario
             response = session.get(url, timeout=20, allow_redirects=True)
             
             # Si obtenemos 403, intentamos con diferentes estrategias
             if response.status_code == 403:
-                # Estrategia 1: Cambiar User-Agent
-                alternative_headers = headers.copy()
-                alternative_headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'
+                # Estrategia alternativa
+                alternative_headers = {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'es-ES,es;q=0.5'
+                }
+                session.headers.clear()
                 session.headers.update(alternative_headers)
-                
-                # Pequeña pausa antes de reintentar
                 time.sleep(2)
                 response = session.get(url, timeout=20, allow_redirects=True)
-                
-                # Si sigue fallando, intentamos sin algunos headers
-                if response.status_code == 403:
-                    minimal_headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                        'Accept-Language': 'es-ES,es;q=0.5',
-                    }
-                    session.headers.clear()
-                    session.headers.update(minimal_headers)
-                    time.sleep(3)
-                    response = session.get(url, timeout=20, allow_redirects=True)
             
             response.raise_for_status()
             
@@ -251,19 +211,15 @@ class ProductBenchmarkAnalyzer:
             '[class*="details"]',
             '[data-testid*="description"]',
             '[class*="product-info"]',
-            '[class*="product-detail"]',
             '[class*="caracteristicas"]',
-            '[class*="specifications"]',
             'meta[name="description"]'
         ]
         
-        # Elementos a excluir (navegación, compra, etc.)
+        # Elementos a excluir
         excluded_classes = [
             'nav', 'menu', 'header', 'footer', 'sidebar', 'cart', 'carrito',
-            'checkout', 'payment', 'shipping', 'delivery', 'envio', 'entrega',
-            'price', 'precio', 'offer', 'oferta', 'promotion', 'promocion',
-            'review', 'opinion', 'rating', 'valoracion', 'comment', 'comentario',
-            'breadcrumb', 'migas', 'cookie', 'legal', 'policy', 'politica'
+            'checkout', 'payment', 'shipping', 'delivery', 'price', 'precio',
+            'review', 'opinion', 'rating', 'valoracion', 'breadcrumb'
         ]
         
         for selector in description_selectors:
@@ -289,7 +245,6 @@ class ProductBenchmarkAnalyzer:
                     if not is_excluded:
                         text = element.get_text().strip()
                         if text and len(text) > 30 and len(text) < 3000:
-                            # Filtrar texto que no parezca descripción de producto
                             if not self._is_ecommerce_text(text):
                                 description += text + " "
         
@@ -301,18 +256,12 @@ class ProductBenchmarkAnalyzer:
         
         # Patrones que indican texto de e-commerce
         ecommerce_patterns = [
-            'añadir al carrito', 'agregar al carrito', 'comprar ahora',
-            'envío gratis', 'envio gratuito', 'entrega gratuita',
-            'opiniones de', 'valoraciones de', 'reseñas de',
-            'política de', 'términos y condiciones', 'cookies',
-            'mi cuenta', 'iniciar sesión', 'registrarse',
-            'comparar producto', 'lista de deseos', 'favoritos',
-            'stock disponible', 'producto agotado', 'sin stock',
-            'descuento del', 'oferta especial', 'precio rebajado',
-            'gastos de envío', 'método de pago', 'tarjeta de crédito'
+            'añadir al carrito', 'comprar ahora', 'envío gratis',
+            'opiniones de', 'valoraciones de', 'política de',
+            'mi cuenta', 'iniciar sesión', 'comparar producto',
+            'stock disponible', 'descuento del', 'gastos de envío'
         ]
         
-        # Si contiene muchos patrones de e-commerce, lo descartamos
         pattern_count = sum(1 for pattern in ecommerce_patterns if pattern in text_lower)
         
         # Si más del 30% del texto son palabras de e-commerce, lo descartamos
@@ -332,20 +281,16 @@ class ProductBenchmarkAnalyzer:
             '[class*="benefit"] li',
             '[class*="highlight"] li',
             '[class*="spec"] li',
-            '[class*="bullet"] li',
             'ul[class*="feature"] li',
-            'ul[class*="list"] li',
             '.features li',
             '.benefits li',
-            'div[class*="feature"]',
-            'span[class*="feature"]'
+            'div[class*="feature"]'
         ]
         
         for selector in feature_selectors:
             elements = soup.select(selector)
             for element in elements:
                 text = element.get_text().strip()
-                # Filtrar características válidas
                 if (text and 
                     len(text) > 10 and 
                     len(text) < 500 and 
@@ -353,7 +298,7 @@ class ProductBenchmarkAnalyzer:
                     not text.lower().startswith(('http', 'www', 'mailto'))):
                     features.append(text)
         
-        # Eliminar duplicados manteniendo orden
+        # Eliminar duplicados
         seen = set()
         unique_features = []
         for feature in features:
@@ -399,8 +344,7 @@ class ProductBenchmarkAnalyzer:
                 price_patterns = [
                     r'[€$£¥]\s*[\d,]+\.?\d*',
                     r'[\d,]+\.?\d*\s*[€$£¥]',
-                    r'[\d,]+\.?\d*\s*EUR?',
-                    r'[\d,]+\.?\d*\s*USD?'
+                    r'[\d,]+\.?\d*\s*EUR?'
                 ]
                 
                 for pattern in price_patterns:
@@ -417,7 +361,6 @@ class ProductBenchmarkAnalyzer:
         filter_selectors = [
             '[class*="filter"] a',
             '[class*="facet"] a',
-            '[class*="refine"] a',
             'select option',
             '[type="checkbox"] + label'
         ]
@@ -450,7 +393,7 @@ class ProductBenchmarkAnalyzer:
             for element in elements:
                 text = element.get_text().strip()
                 if (text and 
-                    text.lower() not in ['home', 'inicio', 'tienda', 'shop'] and
+                    text.lower() not in ['home', 'inicio', 'tienda'] and
                     len(text) > 2 and 
                     len(text) < 50):
                     categories.append(text)
@@ -462,19 +405,18 @@ class ProductBenchmarkAnalyzer:
         all_text = ""
         
         for data in all_data:
-            # Priorizar título y características sobre descripción general
+            # Priorizar título y características
             title_text = data.get('title', '')
             features_text = " ".join(data.get('features', []))
             specs_keys = " ".join(data.get('specifications', {}).keys())
             specs_values = " ".join(data.get('specifications', {}).values())
             
-            # Dar más peso a características y especificaciones
+            # Dar más peso a características técnicas
             all_text += f" {title_text} {features_text} {features_text} {specs_keys} {specs_values} "
             
-            # Agregar descripción pero con menos peso
+            # Agregar descripción filtrada
             description = data.get('description', '')
             if description:
-                # Solo tomar fragmentos que parezcan técnicos o descriptivos
                 sentences = description.split('.')
                 for sentence in sentences:
                     if self._is_product_relevant_sentence(sentence):
@@ -498,21 +440,17 @@ class ProductBenchmarkAnalyzer:
         """Determina si una oración es relevante para el producto"""
         sentence_lower = sentence.lower().strip()
         
-        # Frases que indican características técnicas o de producto
+        # Frases que indican características técnicas
         positive_indicators = [
             'características', 'especificaciones', 'incluye', 'cuenta con',
-            'dispone de', 'incorpora', 'tecnología', 'material', 'diseño',
-            'tamaño', 'dimensiones', 'peso', 'color', 'memoria', 'procesador',
-            'pantalla', 'batería', 'conectividad', 'compatible', 'resistente',
-            'calidad', 'rendimiento', 'capacidad', 'velocidad', 'potencia'
+            'tecnología', 'material', 'diseño', 'tamaño', 'dimensiones',
+            'memoria', 'procesador', 'pantalla', 'batería', 'compatible'
         ]
         
-        # Frases que indican contenido no relevante
+        # Frases no relevantes
         negative_indicators = [
-            'añadir', 'carrito', 'comprar', 'precio', 'envío', 'entrega',
-            'opinión', 'valoración', 'comentario', 'review', 'stock',
-            'disponible', 'agotado', 'oferta', 'descuento', 'promoción',
-            'cliente', 'usuario', 'pedido', 'facturación', 'pago'
+            'añadir', 'carrito', 'comprar', 'precio', 'envío',
+            'opinión', 'valoración', 'stock', 'oferta', 'cliente'
         ]
         
         positive_score = sum(1 for indicator in positive_indicators if indicator in sentence_lower)
@@ -522,23 +460,10 @@ class ProductBenchmarkAnalyzer:
     
     def _is_product_term(self, word):
         """Determina si una palabra es relevante para describir productos"""
-        # Palabras que claramente no son características de producto
         irrelevant_terms = {
-            'página', 'pagina', 'sitio', 'web', 'online', 'internet',
-            'usuario', 'cliente', 'cuenta', 'perfil', 'sesión', 'login',
-            'registro', 'política', 'politica', 'legal', 'términos', 'terminos',
-            'condiciones', 'privacidad', 'cookies', 'aviso', 'contacto',
-            'ayuda', 'soporte', 'servicio', 'atención', 'atencion',
-            'compra', 'venta', 'pedido', 'factura', 'pago', 'tarjeta',
-            'efectivo', 'transferencia', 'paypal', 'bizum', 'financiación', 'financiacion',
-            'cuota', 'cuotas', 'interés', 'interes', 'descuento', 'rebaja',
-            'oferta', 'promoción', 'promocion', 'precio', 'coste', 'costo',
-            'euro', 'euros', 'dólar', 'dollar', 'moneda', 'divisa',
-            'envío', 'envio', 'entrega', 'transporte', 'mensajería', 'mensajeria',
-            'devolución', 'devolucion', 'cambio', 'garantía', 'garantia',
-            'opinión', 'opinion', 'valoración', 'valoracion', 'comentario',
-            'reseña', 'review', 'rating', 'puntuación', 'puntuacion',
-            'estrella', 'estrellas', 'likes', 'compartir', 'social'
+            'página', 'sitio', 'web', 'usuario', 'cliente', 'cuenta',
+            'compra', 'pedido', 'pago', 'envío', 'precio', 'oferta',
+            'opinión', 'valoración', 'comentario', 'estrella'
         }
         
         return word not in irrelevant_terms
@@ -613,20 +538,16 @@ def main():
         - **Amazon** (amazon.es, amazon.com) - ⭐ Recomendado
         - **eBay** (ebay.es, ebay.com) - ⭐ Recomendado  
         - **AliExpress** - Generalmente funciona bien
-        - **Tiendas online pequeñas** - Suelen ser menos restrictivas
-        - **Sitios web de fabricantes** - Buenos para especificaciones técnicas
+        - **Tiendas online pequeñas** - Menos restrictivas
         
         **🚫 Sitios con restricciones:**
         - **MediaMarkt, PCComponentes, El Corte Inglés** - Requieren modo agresivo
         - **Grandes retailers** - Pueden bloquear bots automáticos
-        - **Sitios con Cloudflare** - Protección anti-bot avanzada
         
-        **💡 Consejos para mejores resultados:**
-        - Usa URLs de productos específicos (no categorías ni búsquedas)
-        - Incluye productos similares del mismo nicho para mejor análisis
+        **💡 Consejos:**
+        - Usa URLs de productos específicos (no categorías)
         - Activa el "Modo agresivo" para sitios problemáticos
         - Aumenta el delay a 3-5 segundos para evitar bloqueos
-        - Si un sitio falla, prueba con URLs alternativas del mismo producto
         """)
         
     # Aviso sobre términos filtrados
@@ -661,23 +582,18 @@ def main():
     
     # Opciones para sitios problemáticos
     st.sidebar.markdown("**🛡️ Anti-detección:**")
-    retry_403 = st.sidebar.checkbox("🔄 Reintentar URLs bloqueadas", value=True, 
-                                   help="Intenta diferentes estrategias para sitios que bloquean bots")
+    retry_403 = st.sidebar.checkbox("🔄 Reintentar URLs bloqueadas", value=True)
     
     aggressive_mode = st.sidebar.checkbox("🚀 Modo agresivo", value=False,
-                                        help="Usa delays más largos y más reintentos (más lento pero más efectivo)")
+                                        help="Delays más largos y más reintentos")
     
     if aggressive_mode:
-        delay = max(delay, 3.0)  # Mínimo 3 segundos en modo agresivo
+        delay = max(delay, 3.0)
     
     st.sidebar.markdown("---")
-    st.sidebar.markdown("💡 **Tips para sitios problemáticos:**")
-    st.sidebar.markdown("- Activa el modo agresivo para MediaMarkt/PCComponentes")
+    st.sidebar.markdown("💡 **Tips:**")
+    st.sidebar.markdown("- Activa modo agresivo para sitios problemáticos")
     st.sidebar.markdown("- Usa delays de 3-5 seg para evitar bloqueos")
-    st.sidebar.markdown("- Si persisten errores 403, prueba con otras URLs")
-    
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("💡 **Tip:** Comienza con 3-5 URLs para probar la herramienta")
     
     # Input de URLs
     st.header("🔗 URLs de Productos a Analizar")
@@ -765,7 +681,7 @@ https://www.amazon.es/dp/B08CH7RHDP""",
             status_text.markdown(f'🔍 **Procesando URL {i+1}/{len(urls)}**  \n`{url[:70]}{"..." if len(url) > 70 else ""}`')
             
             # Aplicar delay más largo si es modo agresivo
-            if i > 0:  # No delay en la primera URL
+            if i > 0:
                 current_delay = delay * 1.5 if aggressive_mode else delay
                 time.sleep(current_delay)
             
@@ -777,15 +693,15 @@ https://www.amazon.es/dp/B08CH7RHDP""",
                 failed_count += 1
                 failed_metric.metric("❌ Fallidos", failed_count)
                 
-                # Si está activado el retry y falló por 403, intentar una vez más
-                if retry_403 and failed_count <= 3:  # Limitar reintentos
+                # Si está activado el retry y falló, intentar una vez más
+                if retry_403 and failed_count <= 3:
                     status_text.markdown(f'🔄 **Reintentando URL bloqueada...**')
-                    time.sleep(5)  # Pausa más larga antes del reintento
+                    time.sleep(5)
                     retry_data = analyzer.extract_content_from_url(url)
                     if retry_data:
                         all_data.append(retry_data)
                         success_metric.metric("✅ Exitosos", len(all_data))
-                        failed_count -= 1  # Corregir contador
+                        failed_count -= 1
                         failed_metric.metric("❌ Fallidos", failed_count)
             
             progress_bar.progress((i + 1) / len(urls))
@@ -794,6 +710,25 @@ https://www.amazon.es/dp/B08CH7RHDP""",
         
         if not all_data:
             st.error("❌ No se pudo extraer información de ninguna URL.")
+            
+            st.info("""
+            💡 **Sitios con protección anti-bot detectados:**
+            
+            **MediaMarkt, PCComponentes, El Corte Inglés** y otros grandes retailers
+            suelen bloquear scraping automático por políticas de seguridad.
+            
+            **Alternativas recomendadas:**
+            - Usa URLs de Amazon (menos restrictivo)
+            - Prueba con tiendas online más pequeñas
+            - Activa el "Modo agresivo" en configuración avanzada
+            - Aumenta el delay entre requests a 3-5 segundos
+            
+            **URLs que suelen funcionar mejor:**
+            - amazon.es, amazon.com
+            - Tiendas especializadas más pequeñas
+            - Sitios web de fabricantes
+            - Marketplaces menos restrictivos
+            """)
             return
         
         # Mostrar mensaje de éxito
