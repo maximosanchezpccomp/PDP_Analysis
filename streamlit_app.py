@@ -19,7 +19,6 @@ try:
     WORDCLOUD_AVAILABLE = True
 except ImportError:
     WORDCLOUD_AVAILABLE = False
-    st.warning("⚠️ WordCloud no está disponible. Las nubes de palabras estarán deshabilitadas.")
 
 # Importar textblob de forma opcional
 try:
@@ -46,12 +45,18 @@ def download_nltk_data():
     try:
         nltk.data.find('tokenizers/punkt')
     except LookupError:
-        nltk.download('punkt')
+        try:
+            nltk.download('punkt')
+        except:
+            pass
     
     try:
         nltk.data.find('corpora/stopwords')
     except LookupError:
-        nltk.download('stopwords')
+        try:
+            nltk.download('stopwords')
+        except:
+            pass
 
 download_nltk_data()
 
@@ -298,7 +303,7 @@ class ProductBenchmarkAnalyzer:
                     len(text) > 2 and 
                     len(text) < 80 and
                     not text.lower().startswith(('http', 'www')) and
-                    not re.match(r'^\d+, text)):
+                    not re.match(r'^\d+$', text)):
                     filters.append(text)
         
         # Eliminar duplicados
@@ -406,6 +411,10 @@ def main():
     # Header principal
     st.markdown('<h1 class="main-header">📊 Herramienta de Análisis de Competencia</h1>', unsafe_allow_html=True)
     st.markdown("### Analiza fichas de productos de la competencia para obtener insights clave")
+    
+    # Mensaje de estado de librerías
+    if not WORDCLOUD_AVAILABLE:
+        st.info("ℹ️ WordCloud no está disponible. Las nubes de palabras se mostrarán como gráficos de barras.")
     
     # Información de ayuda
     with st.expander("ℹ️ ¿Cómo funciona esta herramienta?"):
@@ -659,37 +668,6 @@ https://www.elcorteingles.es/producto-ejemplo-4""",
                             st.markdown(f"**📄 Descripción:** {product['description'][:200]}...")
                     
                     with col2:
-                        if product['features']:
-                            st.markdown("**⭐ Características principales:**")
-                            for feature in product['features'][:5]:
-                                st.markdown(f"• {feature}")
-        
-        with tab2:
-            if analyze_terms:
-                st.header("🔤 Términos Más Repetidos")
-                
-                terms = analyzer.analyze_terms(all_data)
-                top_terms = terms.most_common(top_n)
-                
-                if top_terms:
-                    df_terms = pd.DataFrame(top_terms, columns=['Término', 'Frecuencia'])
-                    
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        fig = px.bar(
-                            df_terms, 
-                            x='Frecuencia', 
-                            y='Término',
-                            orientation='h', 
-                            title="Términos más frecuentes",
-                            color='Frecuencia',
-                            color_continuous_scale='viridis'
-                        )
-                        fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'})
-                        st.plotly_chart(fig, use_container_width=True)
-                    
-                    with col2:
                         st.markdown("**📊 Top Términos:**")
                         st.dataframe(df_terms, use_container_width=True, hide_index=True)
                         
@@ -788,7 +766,7 @@ https://www.elcorteingles.es/producto-ejemplo-4""",
                         
                         # Detectar categorías de características
                         tech_features = [f for f, c in top_features if any(tech in f.lower() for tech in ['digital', 'smart', 'auto', 'wireless', 'bluetooth', 'wifi'])]
-                        comfort_features = [f for f, c in top_features if any(comfort in f.lower() for tech in ['comfort', 'ergonomic', 'soft', 'light'])]
+                        comfort_features = [f for f, c in top_features if any(comfort in f.lower() for comfort in ['comfort', 'ergonomic', 'soft', 'light'])]
                         
                         if tech_features:
                             st.success(f"**Tecnológicas:** {len(tech_features)} características")
@@ -798,7 +776,7 @@ https://www.elcorteingles.es/producto-ejemplo-4""",
         with tab5:
             st.header("📈 Visualizaciones Adicionales")
             
-            # Nube de palabras
+            # Nube de palabras o alternativa
             if show_wordcloud and analyze_terms and WORDCLOUD_AVAILABLE:
                 st.subheader("☁️ Nube de Palabras")
                 
@@ -1153,3 +1131,32 @@ https://www.elcorteingles.es/producto-ejemplo-4""",
 
 if __name__ == "__main__":
     main()
+                        if product['features']:
+                            st.markdown("**⭐ Características principales:**")
+                            for feature in product['features'][:5]:
+                                st.markdown(f"• {feature}")
+        
+        with tab2:
+            if analyze_terms:
+                st.header("🔤 Términos Más Repetidos")
+                
+                terms = analyzer.analyze_terms(all_data)
+                top_terms = terms.most_common(top_n)
+                
+                if top_terms:
+                    df_terms = pd.DataFrame(top_terms, columns=['Término', 'Frecuencia'])
+                    
+                    col1, col2 = st.columns([2, 1])
+                    
+                    with col1:
+                        fig = px.bar(
+                            df_terms, 
+                            x='Frecuencia', 
+                            y='Término',
+                            orientation='h', 
+                            title="Términos más frecuentes",
+                            color='Frecuencia',
+                            color_continuous_scale='viridis'
+                        )
+                        fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'})
+                        st.plotly_chart(fig, use_container_width=True)
