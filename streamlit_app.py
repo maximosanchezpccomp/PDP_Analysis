@@ -1,4 +1,26 @@
-import streamlit as st
+if not all_data:
+            st.error("❌ No se pudo extraer información de ninguna URL.")
+            
+            # Información específica sobre sitios problemáticos
+            st.info("""
+            💡 **Sitios con protección anti-bot detectados:**
+            
+            **MediaMarkt, PCComponentes, El Corte Inglés** y otros grandes retailers
+            suelen bloquear scraping automático por políticas de seguridad.
+            
+            **Alternativas recomendadas:**
+            - Usa URLs de Amazon (menos restrictivo)
+            - Prueba con tiendas online más pequeñas
+            - Activa el "Modo agresivo" en configuración avanzada
+            - Aumenta el delay entre requests a 3-5 segundos
+            
+            **URLs que suelen funcionar mejor:**
+            - amazon.es, amazon.com
+            - Tiendas especializadas más pequeñas
+            - Sitios web de fabricantes
+            - Marketplaces menos restrictivos
+            """)
+            returnimport streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -56,29 +78,114 @@ download_nltk_data()
 class ProductBenchmarkAnalyzer:
     def __init__(self):
         try:
-            self.stop_words = set(nltk.corpus.stopwords.words('spanish') + 
-                                 nltk.corpus.stopwords.words('english'))
+            # Stopwords básicas en español e inglés
+            spanish_stopwords = set([
+                'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 
+                'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'del', 'las', 'una', 
+                'su', 'me', 'si', 'tu', 'más', 'muy', 'pero', 'como', 'son', 'los', 'este',
+                'esta', 'esto', 'ese', 'esa', 'esos', 'esas', 'tiene', 'ser', 'hacer',
+                'estar', 'todo', 'todos', 'toda', 'todas', 'cuando', 'donde', 'como',
+                'porque', 'aunque', 'desde', 'hasta', 'entre', 'sobre', 'bajo', 'sin'
+            ])
+            
+            english_stopwords = set([
+                'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 
+                'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 
+                'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 
+                'might', 'must', 'can', 'this', 'that', 'these', 'those', 'all', 'any', 
+                'some', 'each', 'every', 'both', 'either', 'neither', 'one', 'two', 'three'
+            ])
+            
+            # Palabras relacionadas con e-commerce que NO queremos analizar
+            ecommerce_stopwords = set([
+                'añadir', 'carrito', 'comprar', 'compra', 'pedido', 'envio', 'envío', 
+                'entrega', 'prevista', 'generado', 'stock', 'disponible', 'agotado',
+                'precio', 'oferta', 'descuento', 'rebaja', 'promocion', 'promoción',
+                'gratis', 'gratuito', 'iva', 'incluido', 'excluido', 'gastos',
+                'valoracion', 'valoración', 'opinion', 'opinión', 'comentario',
+                'puntuacion', 'puntuación', 'estrella', 'estrellas', 'valorar',
+                'recomendar', 'recomiendo', 'cliente', 'clientes', 'usuario', 'usuarios',
+                'cada', 'solo', 'sólo', 'solamente', 'únicamente', 'también', 'además',
+                'producto', 'productos', 'articulo', 'artículo', 'item', 'items',
+                'marca', 'modelo', 'referencia', 'codigo', 'código', 'sku',
+                'categoria', 'categoría', 'seccion', 'sección', 'departamento',
+                'buscar', 'busqueda', 'búsqueda', 'filtrar', 'filtro', 'filtros',
+                'ordenar', 'clasificar', 'mostrar', 'ver', 'todos', 'todas',
+                'inicio', 'home', 'tienda', 'shop', 'store', 'online',
+                'web', 'website', 'pagina', 'página', 'sitio', 'portal',
+                'cookies', 'politica', 'política', 'privacidad', 'terminos', 'términos',
+                'condiciones', 'legal', 'aviso', 'contacto', 'ayuda', 'soporte',
+                'nuevo', 'nueva', 'nuevos', 'nuevas', 'usado', 'usada', 'segunda', 'mano',
+                'días', 'dia', 'día', 'horas', 'hora', 'minutos', 'minuto',
+                'lunes', 'martes', 'miercoles', 'miércoles', 'jueves', 'viernes', 'sabado', 'sábado', 'domingo',
+                'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+            ])
+            
+            try:
+                nltk_spanish = set(nltk.corpus.stopwords.words('spanish'))
+                nltk_english = set(nltk.corpus.stopwords.words('english'))
+                self.stop_words = spanish_stopwords | english_stopwords | ecommerce_stopwords | nltk_spanish | nltk_english
+            except:
+                self.stop_words = spanish_stopwords | english_stopwords | ecommerce_stopwords
+                
         except:
-            # Si falla NLTK, usar conjunto básico de stopwords
-            self.stop_words = set(['el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'es', 'se', 
-                                 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 
-                                 'para', 'al', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 
-                                 'to', 'for', 'of', 'with', 'by'])
+            # Fallback mínimo
+            self.stop_words = set(['el', 'la', 'de', 'que', 'y', 'a', 'en', 'the', 'and', 'or', 'añadir', 'carrito', 'entrega', 'envio'])
+        
         self.results = []
         
     def extract_content_from_url(self, url):
         """Extrae contenido relevante de una URL de producto"""
         try:
+            # Headers más sofisticados para evitar detección de bot
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
-                'Accept-Encoding': 'gzip, deflate',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
                 'DNT': '1',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"'
             }
-            response = requests.get(url, headers=headers, timeout=15)
+            
+            # Usar session para mantener cookies
+            session = requests.Session()
+            session.headers.update(headers)
+            
+            # Primera petición para establecer cookies si es necesario
+            response = session.get(url, timeout=20, allow_redirects=True)
+            
+            # Si obtenemos 403, intentamos con diferentes estrategias
+            if response.status_code == 403:
+                # Estrategia 1: Cambiar User-Agent
+                alternative_headers = headers.copy()
+                alternative_headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'
+                session.headers.update(alternative_headers)
+                
+                # Pequeña pausa antes de reintentar
+                time.sleep(2)
+                response = session.get(url, timeout=20, allow_redirects=True)
+                
+                # Si sigue fallando, intentamos sin algunos headers
+                if response.status_code == 403:
+                    minimal_headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language': 'es-ES,es;q=0.5',
+                    }
+                    session.headers.clear()
+                    session.headers.update(minimal_headers)
+                    time.sleep(3)
+                    response = session.get(url, timeout=20, allow_redirects=True)
+            
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
@@ -97,6 +204,12 @@ class ProductBenchmarkAnalyzer:
             
             return product_data
             
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 403:
+                st.warning(f"🚫 Acceso denegado a {urlparse(url).netloc} - El sitio bloquea bots automáticos")
+            else:
+                st.warning(f"⚠️ Error HTTP {e.response.status_code} con {url[:50]}...")
+            return None
         except requests.exceptions.RequestException as e:
             st.warning(f"⚠️ Error de conexión con {url[:50]}...: {str(e)}")
             return None
@@ -126,34 +239,88 @@ class ProductBenchmarkAnalyzer:
         return ""
     
     def _extract_description(self, soup):
-        """Extrae la descripción del producto"""
-        selectors = [
-            '[class*="description"]',
+        """Extrae la descripción del producto enfocándose en contenido relevante"""
+        description = ""
+        
+        # Selectores específicos para descripciones de producto
+        description_selectors = [
             '[class*="product-description"]',
+            '[class*="description"]',
             '[class*="summary"]',
             '[class*="overview"]',
             '[class*="details"]',
             '[data-testid*="description"]',
-            'meta[name="description"]',
-            '[class*="content"]'
+            '[class*="product-info"]',
+            '[class*="product-detail"]',
+            '[class*="caracteristicas"]',
+            '[class*="specifications"]',
+            'meta[name="description"]'
         ]
         
-        description = ""
-        for selector in selectors:
+        # Elementos a excluir (navegación, compra, etc.)
+        excluded_classes = [
+            'nav', 'menu', 'header', 'footer', 'sidebar', 'cart', 'carrito',
+            'checkout', 'payment', 'shipping', 'delivery', 'envio', 'entrega',
+            'price', 'precio', 'offer', 'oferta', 'promotion', 'promocion',
+            'review', 'opinion', 'rating', 'valoracion', 'comment', 'comentario',
+            'breadcrumb', 'migas', 'cookie', 'legal', 'policy', 'politica'
+        ]
+        
+        for selector in description_selectors:
             if 'meta' in selector:
                 element = soup.select_one(selector)
                 if element:
                     desc = element.get('content', '')
-                    if desc and len(desc) > 20:
+                    if desc and len(desc) > 30:
                         description += desc + " "
             else:
                 elements = soup.select(selector)
                 for element in elements:
-                    text = element.get_text().strip()
-                    if text and len(text) > 20 and len(text) < 2000:
-                        description += text + " "
+                    # Verificar que no sea un elemento excluido
+                    element_class = element.get('class', [])
+                    element_id = element.get('id', '')
+                    
+                    is_excluded = any(
+                        excluded in str(element_class).lower() or 
+                        excluded in element_id.lower() 
+                        for excluded in excluded_classes
+                    )
+                    
+                    if not is_excluded:
+                        text = element.get_text().strip()
+                        if text and len(text) > 30 and len(text) < 3000:
+                            # Filtrar texto que no parezca descripción de producto
+                            if not self._is_ecommerce_text(text):
+                                description += text + " "
         
         return description.strip()
+    
+    def _is_ecommerce_text(self, text):
+        """Detecta si un texto es relacionado con e-commerce y no con producto"""
+        text_lower = text.lower()
+        
+        # Patrones que indican texto de e-commerce
+        ecommerce_patterns = [
+            'añadir al carrito', 'agregar al carrito', 'comprar ahora',
+            'envío gratis', 'envio gratuito', 'entrega gratuita',
+            'opiniones de', 'valoraciones de', 'reseñas de',
+            'política de', 'términos y condiciones', 'cookies',
+            'mi cuenta', 'iniciar sesión', 'registrarse',
+            'comparar producto', 'lista de deseos', 'favoritos',
+            'stock disponible', 'producto agotado', 'sin stock',
+            'descuento del', 'oferta especial', 'precio rebajado',
+            'gastos de envío', 'método de pago', 'tarjeta de crédito'
+        ]
+        
+        # Si contiene muchos patrones de e-commerce, lo descartamos
+        pattern_count = sum(1 for pattern in ecommerce_patterns if pattern in text_lower)
+        
+        # Si más del 30% del texto son palabras de e-commerce, lo descartamos
+        words = text_lower.split()
+        ecommerce_word_count = sum(1 for word in words if word in self.stop_words)
+        ecommerce_ratio = ecommerce_word_count / len(words) if words else 0
+        
+        return pattern_count > 2 or ecommerce_ratio > 0.3
     
     def _extract_features(self, soup):
         """Extrae características y features del producto"""
@@ -291,20 +458,90 @@ class ProductBenchmarkAnalyzer:
         return categories
     
     def analyze_terms(self, all_data):
-        """Analiza los términos más frecuentes"""
+        """Analiza los términos más frecuentes enfocándose en características de producto"""
         all_text = ""
         
         for data in all_data:
-            all_text += f" {data.get('title', '')} {data.get('description', '')} "
-            all_text += " ".join(data.get('features', []))
-            all_text += " ".join(data.get('specifications', {}).keys())
-            all_text += " ".join(data.get('specifications', {}).values())
+            # Priorizar título y características sobre descripción general
+            title_text = data.get('title', '')
+            features_text = " ".join(data.get('features', []))
+            specs_keys = " ".join(data.get('specifications', {}).keys())
+            specs_values = " ".join(data.get('specifications', {}).values())
+            
+            # Dar más peso a características y especificaciones
+            all_text += f" {title_text} {features_text} {features_text} {specs_keys} {specs_values} "
+            
+            # Agregar descripción pero con menos peso
+            description = data.get('description', '')
+            if description:
+                # Solo tomar fragmentos que parezcan técnicos o descriptivos
+                sentences = description.split('.')
+                for sentence in sentences:
+                    if self._is_product_relevant_sentence(sentence):
+                        all_text += sentence + " "
         
         # Limpiar y tokenizar texto
         words = re.findall(r'\b[a-záéíóúñüA-ZÁÉÍÓÚÑÜ]{3,}\b', all_text.lower())
-        words = [word for word in words if word not in self.stop_words]
         
-        return Counter(words)
+        # Filtrar palabras relevantes
+        filtered_words = []
+        for word in words:
+            if (word not in self.stop_words and 
+                len(word) >= 3 and 
+                not word.isdigit() and
+                self._is_product_term(word)):
+                filtered_words.append(word)
+        
+        return Counter(filtered_words)
+    
+    def _is_product_relevant_sentence(self, sentence):
+        """Determina si una oración es relevante para el producto"""
+        sentence_lower = sentence.lower().strip()
+        
+        # Frases que indican características técnicas o de producto
+        positive_indicators = [
+            'características', 'especificaciones', 'incluye', 'cuenta con',
+            'dispone de', 'incorpora', 'tecnología', 'material', 'diseño',
+            'tamaño', 'dimensiones', 'peso', 'color', 'memoria', 'procesador',
+            'pantalla', 'batería', 'conectividad', 'compatible', 'resistente',
+            'calidad', 'rendimiento', 'capacidad', 'velocidad', 'potencia'
+        ]
+        
+        # Frases que indican contenido no relevante
+        negative_indicators = [
+            'añadir', 'carrito', 'comprar', 'precio', 'envío', 'entrega',
+            'opinión', 'valoración', 'comentario', 'review', 'stock',
+            'disponible', 'agotado', 'oferta', 'descuento', 'promoción',
+            'cliente', 'usuario', 'pedido', 'facturación', 'pago'
+        ]
+        
+        positive_score = sum(1 for indicator in positive_indicators if indicator in sentence_lower)
+        negative_score = sum(1 for indicator in negative_indicators if indicator in sentence_lower)
+        
+        return positive_score > negative_score and len(sentence.strip()) > 20
+    
+    def _is_product_term(self, word):
+        """Determina si una palabra es relevante para describir productos"""
+        # Palabras que claramente no son características de producto
+        irrelevant_terms = {
+            'página', 'pagina', 'sitio', 'web', 'online', 'internet',
+            'usuario', 'cliente', 'cuenta', 'perfil', 'sesión', 'login',
+            'registro', 'política', 'politica', 'legal', 'términos', 'terminos',
+            'condiciones', 'privacidad', 'cookies', 'aviso', 'contacto',
+            'ayuda', 'soporte', 'servicio', 'atención', 'atencion',
+            'compra', 'venta', 'pedido', 'factura', 'pago', 'tarjeta',
+            'efectivo', 'transferencia', 'paypal', 'bizum', 'financiación', 'financiacion',
+            'cuota', 'cuotas', 'interés', 'interes', 'descuento', 'rebaja',
+            'oferta', 'promoción', 'promocion', 'precio', 'coste', 'costo',
+            'euro', 'euros', 'dólar', 'dollar', 'moneda', 'divisa',
+            'envío', 'envio', 'entrega', 'transporte', 'mensajería', 'mensajeria',
+            'devolución', 'devolucion', 'cambio', 'garantía', 'garantia',
+            'opinión', 'opinion', 'valoración', 'valoracion', 'comentario',
+            'reseña', 'review', 'rating', 'puntuación', 'puntuacion',
+            'estrella', 'estrellas', 'likes', 'compartir', 'social'
+        }
+        
+        return word not in irrelevant_terms
     
     def analyze_filters(self, all_data):
         """Analiza los filtros más comunes"""
@@ -372,11 +609,28 @@ def main():
         4. 📈 **Visualizar los resultados** con gráficos interactivos
         5. 💾 **Exportar los datos** en formato CSV para análisis adicionales
         
-        **Consejos para mejores resultados:**
-        - Usa URLs de productos específicos (no categorías)
-        - Incluye productos similares del mismo nicho
-        - Espera unos segundos entre análisis para evitar bloqueos
+        **✅ Sitios web compatibles:**
+        - **Amazon** (amazon.es, amazon.com) - ⭐ Recomendado
+        - **eBay** (ebay.es, ebay.com) - ⭐ Recomendado  
+        - **AliExpress** - Generalmente funciona bien
+        - **Tiendas online pequeñas** - Suelen ser menos restrictivas
+        - **Sitios web de fabricantes** - Buenos para especificaciones técnicas
+        
+        **🚫 Sitios con restricciones:**
+        - **MediaMarkt, PCComponentes, El Corte Inglés** - Requieren modo agresivo
+        - **Grandes retailers** - Pueden bloquear bots automáticos
+        - **Sitios con Cloudflare** - Protección anti-bot avanzada
+        
+        **💡 Consejos para mejores resultados:**
+        - Usa URLs de productos específicos (no categorías ni búsquedas)
+        - Incluye productos similares del mismo nicho para mejor análisis
+        - Activa el "Modo agresivo" para sitios problemáticos
+        - Aumenta el delay a 3-5 segundos para evitar bloqueos
+        - Si un sitio falla, prueba con URLs alternativas del mismo producto
         """)
+        
+    # Aviso sobre términos filtrados
+    st.info("🎯 **Análisis optimizado:** La herramienta filtra automáticamente términos relacionados con compra, envío, opiniones, etc. para centrarse en características reales del producto.")
     
     # Sidebar para configuración
     st.sidebar.header("⚙️ Configuración del Análisis")
@@ -403,7 +657,24 @@ def main():
     
     # Configuración de scraping
     st.sidebar.subheader("🔧 Configuración Avanzada")
-    delay = st.sidebar.slider("⏱️ Delay entre requests (seg)", 0.5, 5.0, 1.0, 0.5)
+    delay = st.sidebar.slider("⏱️ Delay entre requests (seg)", 0.5, 5.0, 2.0, 0.5)
+    
+    # Opciones para sitios problemáticos
+    st.sidebar.markdown("**🛡️ Anti-detección:**")
+    retry_403 = st.sidebar.checkbox("🔄 Reintentar URLs bloqueadas", value=True, 
+                                   help="Intenta diferentes estrategias para sitios que bloquean bots")
+    
+    aggressive_mode = st.sidebar.checkbox("🚀 Modo agresivo", value=False,
+                                        help="Usa delays más largos y más reintentos (más lento pero más efectivo)")
+    
+    if aggressive_mode:
+        delay = max(delay, 3.0)  # Mínimo 3 segundos en modo agresivo
+    
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("💡 **Tips para sitios problemáticos:**")
+    st.sidebar.markdown("- Activa el modo agresivo para MediaMarkt/PCComponentes")
+    st.sidebar.markdown("- Usa delays de 3-5 seg para evitar bloqueos")
+    st.sidebar.markdown("- Si persisten errores 403, prueba con otras URLs")
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("💡 **Tip:** Comienza con 3-5 URLs para probar la herramienta")
@@ -417,21 +688,22 @@ def main():
         urls_input = st.text_area(
             "Introduce las URLs de productos (una por línea):",
             height=200,
-            placeholder="""https://www.amazon.es/producto-ejemplo-1
-https://www.pccomponentes.com/producto-ejemplo-2
-https://www.mediamarkt.es/producto-ejemplo-3""",
+            placeholder="""https://www.amazon.es/dp/B08N5WRWNW
+https://www.amazon.es/dp/B087DTHJ8B
+https://www.amazon.es/dp/B08CH7RHDP""",
             help="Pega aquí las URLs completas de los productos que quieres analizar"
         )
     
     with col2:
-        st.markdown("**📝 Ejemplos de URLs válidas:**")
+        st.markdown("**📝 URLs que funcionan bien:**")
         st.code("amazon.es/dp/B08X...")
-        st.code("pccomponentes.com/...")
-        st.code("mediamarkt.es/es/...")
-        st.markdown("**⚠️ Evita URLs de:**")
-        st.markdown("- Categorías")
-        st.markdown("- Búsquedas")
-        st.markdown("- Páginas principales")
+        st.code("ebay.es/itm/...")
+        st.code("aliexpress.com/item/...")
+        st.markdown("**🚫 URLs problemáticas:**")
+        st.markdown("- mediamarkt.es")
+        st.markdown("- pccomponentes.com")
+        st.markdown("- elcorteingles.es")
+        st.markdown("**💡 Tip:** Usa el modo agresivo para sitios problemáticos")
     
     # Validación básica de URLs
     if urls_input.strip():
@@ -492,6 +764,11 @@ https://www.mediamarkt.es/producto-ejemplo-3""",
         for i, url in enumerate(urls):
             status_text.markdown(f'🔍 **Procesando URL {i+1}/{len(urls)}**  \n`{url[:70]}{"..." if len(url) > 70 else ""}`')
             
+            # Aplicar delay más largo si es modo agresivo
+            if i > 0:  # No delay en la primera URL
+                current_delay = delay * 1.5 if aggressive_mode else delay
+                time.sleep(current_delay)
+            
             data = analyzer.extract_content_from_url(url)
             if data:
                 all_data.append(data)
@@ -499,9 +776,19 @@ https://www.mediamarkt.es/producto-ejemplo-3""",
             else:
                 failed_count += 1
                 failed_metric.metric("❌ Fallidos", failed_count)
+                
+                # Si está activado el retry y falló por 403, intentar una vez más
+                if retry_403 and failed_count <= 3:  # Limitar reintentos
+                    status_text.markdown(f'🔄 **Reintentando URL bloqueada...**')
+                    time.sleep(5)  # Pausa más larga antes del reintento
+                    retry_data = analyzer.extract_content_from_url(url)
+                    if retry_data:
+                        all_data.append(retry_data)
+                        success_metric.metric("✅ Exitosos", len(all_data))
+                        failed_count -= 1  # Corregir contador
+                        failed_metric.metric("❌ Fallidos", failed_count)
             
             progress_bar.progress((i + 1) / len(urls))
-            time.sleep(delay)
         
         status_text.markdown('✅ **Análisis completado exitosamente**')
         
@@ -595,6 +882,24 @@ https://www.mediamarkt.es/producto-ejemplo-3""",
                     with col2:
                         st.markdown("**📊 Top Términos:**")
                         st.dataframe(df_terms, use_container_width=True, hide_index=True)
+                        
+                        # Insights mejorados
+                        st.markdown("**💡 Insights:**")
+                        if len(top_terms) > 0:
+                            most_common = top_terms[0]
+                            st.info(f"Término más relevante: **'{most_common[0]}'** ({most_common[1]} veces)")
+                        
+                        # Categorización automática de términos
+                        tech_terms = [term for term, count in top_terms if any(tech in term.lower() for tech in ['digital', 'smart', 'tech', 'pro', 'hd', '4k', 'wifi', 'bluetooth', 'usb', 'led'])]
+                        material_terms = [term for term, count in top_terms if any(mat in term.lower() for mat in ['acero', 'metal', 'plastico', 'madera', 'cristal', 'ceramic', 'silicon'])]
+                        size_terms = [term for term, count in top_terms if any(size in term.lower() for size in ['grande', 'pequeño', 'mini', 'xl', 'slim', 'compact'])]
+                        
+                        if tech_terms:
+                            st.success(f"**Tecnológicos:** {len(tech_terms)} términos detectados")
+                        if material_terms:
+                            st.success(f"**Materiales:** {len(material_terms)} términos detectados")
+                        if size_terms:
+                            st.success(f"**Tamaños:** {len(size_terms)} términos detectados")
         
         with tab3:
             if analyze_filters:
@@ -620,6 +925,25 @@ https://www.mediamarkt.es/producto-ejemplo-3""",
                     with col2:
                         st.markdown("**🎛️ Top Filtros:**")
                         st.dataframe(df_filters, use_container_width=True, hide_index=True)
+                        
+                        # Insights sobre filtros mejorados
+                        st.markdown("**💡 Insights:**")
+                        if len(top_filters) > 0:
+                            st.info(f"Filtro más común: **'{top_filters[0][0]}'**")
+                        
+                        # Categorización mejorada de filtros
+                        filter_categories = {
+                            'Precio': ['precio', 'price', 'cost', 'euro', 'dollar', 'barato', 'caro'],
+                            'Marca': ['marca', 'brand', 'fabricante', 'sony', 'samsung', 'apple', 'lg'],
+                            'Color': ['color', 'colour', 'negro', 'blanco', 'rojo', 'azul', 'verde'],
+                            'Tamaño': ['tamaño', 'size', 'talla', 'grande', 'pequeño', 'xl', 'l', 'm', 's'],
+                            'Características': ['wifi', 'bluetooth', 'smart', 'digital', 'hd', '4k', 'led']
+                        }
+                        
+                        for category, keywords in filter_categories.items():
+                            category_filters = [f for f, c in top_filters if any(kw in f.lower() for kw in keywords)]
+                            if category_filters:
+                                st.success(f"**{category}:** {len(category_filters)} filtros")
         
         with tab4:
             if analyze_features:
@@ -649,6 +973,24 @@ https://www.mediamarkt.es/producto-ejemplo-3""",
                     with col2:
                         st.markdown("**⭐ Top Características:**")
                         st.dataframe(df_features, use_container_width=True, hide_index=True)
+                        
+                        # Análisis de características mejorado
+                        st.markdown("**💡 Insights:**")
+                        if len(top_features) > 0:
+                            st.info(f"Característica más mencionada: **'{top_features[0][0]}'**")
+                        
+                        # Detectar tipos de características
+                        feature_types = {
+                            'Tecnológicas': ['digital', 'smart', 'inteligente', 'automático', 'wireless', 'bluetooth', 'wifi', 'usb'],
+                            'Diseño': ['elegante', 'moderno', 'compacto', 'ligero', 'resistente', 'duradero', 'premium'],
+                            'Funcionalidad': ['fácil', 'práctico', 'versátil', 'multifuncional', 'eficiente', 'rápido', 'potente'],
+                            'Comodidad': ['cómodo', 'ergonómico', 'suave', 'ajustable', 'flexible', 'antideslizante']
+                        }
+                        
+                        for feature_type, keywords in feature_types.items():
+                            type_features = [f for f, c in top_features if any(kw in f.lower() for kw in keywords)]
+                            if type_features:
+                                st.success(f"**{feature_type}:** {len(type_features)} características")
         
         with tab5:
             st.header("📈 Visualizaciones Adicionales")
