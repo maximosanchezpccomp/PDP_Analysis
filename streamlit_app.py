@@ -629,7 +629,8 @@ ANÁLISIS DE PRECIO:
                 color_continuous_scale="RdYlGn",
                 title="Mapa de Calor - Completitud de Información"
             )
-            fig.update_xaxis(tickangle=45)
+            # Ajustar el ángulo de las etiquetas del eje x
+            fig.update_xaxes(tickangle=45)
             st.plotly_chart(fig, use_container_width=True)
             
             # Gráfico de radar para comparación
