@@ -525,80 +525,300 @@ ANÁLISIS DE PRECIO:
         num_results = st.slider("Número de resultados", 5, 30, 15)
         
         if st.button("🔍 Buscar en Google Shopping", type="primary", disabled=not search_query):
-            shopping_analyzer = GoogleShoppingAnalyzer()
+    shopping_analyzer = GoogleShoppingAnalyzer()
+    
+    with st.spinner("Buscando productos en Google Shopping..."):
+        products, error = shopping_analyzer.search_products_free(search_query, num_results)
+    
+    if error:
+        st.warning(f"⚠️ {error}")
+    
+    if products:
+        st.success(f"✅ Se encontraron {len(products)} productos")
+        
+        # Análisis de datos
+        analysis = shopping_analyzer.analyze_shopping_data(products)
+        
+        # Sub-pestañas para resultados
+        shop_tabs = st.tabs(["📋 Productos", "📊 Tiendas", "💰 Precios", "🔤 Términos"])
+        
+        with shop_tabs[0]:
+            st.subheader("Productos Encontrados")
             
-            with st.spinner("Buscando productos..."):
-                products, error = shopping_analyzer.search_products_free(search_query, num_results)
-
-            if error:
-                st.error(f"No se pudieron obtener resultados: {error}")
-            elif products:
-                st.success(f"✅ Se encontraron {len(products)} productos")
+            # Mostrar productos en un formato más atractivo
+            for i, product in enumerate(products[:15], 1):
+                with st.container():
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    
+                    with col1:
+                        st.markdown(f"**{i}. {product.get('title', 'Sin título')[:80]}**")
+                        if product.get('description') and product.get('description') != product.get('title'):
+                            st.caption(product.get('description', '')[:100] + '...')
+                    
+                    with col2:
+                        price = product.get('price', 'N/A')
+                        if price != 'N/A':
+                            st.markdown(f"💰 **{price}**")
+                        else:
+                            st.markdown("💰 Sin precio")
+                    
+                    with col3:
+                        source = product.get('source', 'N/A')
+                        if source != 'N/A':
+                            st.markdown(f"🏪 {source}")
+                        else:
+                            st.markdown("🏪 Tienda")
+                    
+                    # Link si está disponible
+                    if product.get('link') and product['link'] != '#':
+                        st.markdown(f"[🔗 Ver producto]({product['link']})")
+                    
+                    st.divider()
+        
+        with shop_tabs[1]:
+            st.subheader("📊 Análisis por Tienda")
+            
+            if analysis.get('sources'):
+                sources_df = pd.DataFrame(
+                    list(analysis['sources'].items()), 
+                    columns=['Tienda', 'Productos']
+                ).sort_values('Productos', ascending=False)
                 
-                analysis = shopping_analyzer.analyze_shopping_data(products)
-                
-                # Sub-pestañas para resultados
-                shop_tabs = st.tabs(["📋 Productos", "📊 Tiendas", "💰 Precios", "🔤 Términos"])
-                
-                with shop_tabs[0]:
-                    st.subheader("Productos Encontrados")
-                    for i, product in enumerate(products[:10], 1):
-                        col1, col2, col3 = st.columns([3, 1, 1])
-                        with col1:
-                            st.markdown(f"**{i}. {product.get('title', 'Sin título')[:80]}**")
-                        with col2:
-                            st.markdown(f"💰 **{product.get('price', 'N/A')}**")
-                        with col3:
-                            st.markdown(f"🏪 {product.get('source', 'N/A')}")
-                        st.divider()
-                
-                with shop_tabs[1]:
-                    if analysis['sources']:
-                        sources_df = pd.DataFrame(
-                            list(analysis['sources'].items()), 
-                            columns=['Tienda', 'Productos']
-                        ).sort_values('Productos', ascending=False)
-                        
-                        fig = px.bar(
-                            sources_df, 
-                            x='Productos', 
-                            y='Tienda',
-                            orientation='h',
-                            title="Distribución por Tienda"
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                
-                with shop_tabs[2]:
-                    if analysis.get('price_ranges'):
-                        price_info = analysis['price_ranges']
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("💵 Mínimo", f"{price_info['min']:.2f}€")
-                        with col2:
-                            st.metric("💸 Máximo", f"{price_info['max']:.2f}€")
-                        with col3:
-                            st.metric("📊 Promedio", f"{price_info['avg']:.2f}€")
-                        with col4:
-                            st.metric("🔢 Con Precio", price_info['count'])
-                
-                with shop_tabs[3]:
-                    if analysis['common_terms']:
-                        terms_data = analysis['common_terms'].most_common(25)
-                        terms_df = pd.DataFrame(terms_data, columns=['Término', 'Frecuencia'])
-                        
-                        fig = px.bar(
-                            terms_df.head(15),
-                            x='Frecuencia',
-                            y='Término',
-                            orientation='h',
-                            title="Términos más frecuentes",
-                            color='Frecuencia',
-                            color_continuous_scale='plasma'
-                        )
-                        fig.update_layout(height=500, yaxis={'categoryorder':'total ascending'})
-                        st.plotly_chart(fig, use_container_width=True)
+                if not sources_df.empty:
+                    fig = px.bar(
+                        sources_df, 
+                        x='Productos', 
+                        y='Tienda',
+                        orientation='h',
+                        title="Distribución de productos por tienda",
+                        color='Productos',
+                        color_continuous_scale='viridis'
+                    )
+                    fig.update_layout(height=400, yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Tabla resumen
+                    st.markdown("**🏪 Resumen de tiendas:**")
+                    for idx, row in sources_df.head(10).iterrows():
+                        st.markdown(f"• **{row['Tienda']}**: {row['Productos']} producto(s)")
             else:
-                st.warning("No se encontraron productos. Intenta con otro término.")
+                st.info("No se pudo identificar información de tiendas")
+        
+        with shop_tabs[2]:
+            st.subheader("💰 Análisis de Precios")
+            
+            if analysis.get('price_ranges'):
+                price_info = analysis['price_ranges']
+                
+                # Métricas de precios
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("💵 Precio Mínimo", f"{price_info['min']:.2f}€")
+                with col2:
+                    st.metric("💸 Precio Máximo", f"{price_info['max']:.2f}€")
+                with col3:
+                    st.metric("📊 Precio Promedio", f"{price_info['avg']:.2f}€")
+                with col4:
+                    st.metric("🔢 Con Precio", price_info['count'])
+                
+                # Mediana
+                st.info(f"📈 **Precio Mediano**: {price_info['median']:.2f}€")
+                
+                # Crear histograma si hay suficientes datos
+                if price_info['count'] > 2:
+                    # Extraer precios para histograma
+                    prices_for_plot = []
+                    for p in products:
+                        price_text = p.get('price', '')
+                        if price_text and price_text not in ['Ver precio', 'Consultar precio']:
+                            numbers = re.findall(r'\d+[,.]?\d*', price_text.replace(',', '.'))
+                            for num_str in numbers:
+                                try:
+                                    price = float(num_str.replace(',', '.'))
+                                    if 0.01 < price < 100000:
+                                        prices_for_plot.append(price)
+                                        break
+                                except:
+                                    continue
+                    
+                    if len(prices_for_plot) > 2:
+                        fig = px.histogram(
+                            x=prices_for_plot,
+                            nbins=min(15, len(set(prices_for_plot))),
+                            title="Distribución de precios",
+                            labels={'x': 'Precio (€)', 'y': 'Número de productos'}
+                        )
+                        fig.update_layout(showlegend=False)
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Insights de precios
+                        st.markdown("### 💡 Insights de Precios")
+                        
+                        if price_info['avg'] > 0:
+                            # Productos baratos vs caros
+                            cheap = sum(1 for p in prices_for_plot if p < price_info['avg'] * 0.8)
+                            expensive = sum(1 for p in prices_for_plot if p > price_info['avg'] * 1.2)
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.success(f"💰 **Productos económicos**: {cheap} (< {price_info['avg'] * 0.8:.2f}€)")
+                            with col2:
+                                st.warning(f"💎 **Productos premium**: {expensive} (> {price_info['avg'] * 1.2:.2f}€)")
+            else:
+                st.info("💰 No se encontraron suficientes datos de precios para análisis")
+        
+        with shop_tabs[3]:
+            st.subheader("🔤 Términos Más Comunes")
+            
+            if analysis.get('common_terms'):
+                terms_data = analysis['common_terms'].most_common(30)
+                
+                if terms_data:
+                    terms_df = pd.DataFrame(terms_data, columns=['Término', 'Frecuencia'])
+                    
+                    # Gráfico de barras
+                    fig = px.bar(
+                        terms_df.head(20),
+                        x='Frecuencia',
+                        y='Término',
+                        orientation='h',
+                        title="Términos más frecuentes en productos",
+                        color='Frecuencia',
+                        color_continuous_scale='plasma'
+                    )
+                    fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Análisis de términos
+                    st.markdown("### 📊 Análisis de Términos")
+                    
+                    # Categorizar términos
+                    tech_terms = []
+                    brand_terms = []
+                    feature_terms = []
+                    
+                    tech_keywords = ['bluetooth', 'wifi', 'usb', 'digital', 'smart', 'wireless', 'hd', '4k', 'led']
+                    brand_keywords = ['samsung', 'apple', 'sony', 'lg', 'xiaomi', 'huawei', 'philips', 'bosch']
+                    feature_keywords = ['impermeable', 'resistente', 'portátil', 'recargable', 'ajustable', 'plegable']
+                    
+                    for term, count in terms_data:
+                        term_lower = term.lower()
+                        if any(tech in term_lower for tech in tech_keywords):
+                            tech_terms.append((term, count))
+                        elif any(brand in term_lower for brand in brand_keywords):
+                            brand_terms.append((term, count))
+                        elif any(feature in term_lower for feature in feature_keywords):
+                            feature_terms.append((term, count))
+                    
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        if tech_terms:
+                            st.success(f"⚡ **Términos técnicos**: {len(tech_terms)}")
+                            for term, count in tech_terms[:3]:
+                                st.caption(f"• {term} ({count})")
+                    
+                    with col2:
+                        if brand_terms:
+                            st.info(f"🏷️ **Marcas detectadas**: {len(brand_terms)}")
+                            for term, count in brand_terms[:3]:
+                                st.caption(f"• {term} ({count})")
+                    
+                    with col3:
+                        if feature_terms:
+                            st.warning(f"⭐ **Características**: {len(feature_terms)}")
+                            for term, count in feature_terms[:3]:
+                                st.caption(f"• {term} ({count})")
+            else:
+                st.info("No se pudieron extraer términos suficientes para análisis")
+        
+        # Sección de exportación
+        st.markdown("---")
+        st.subheader("💾 Exportar Datos")
+        
+        # Preparar datos para descarga
+        export_data = []
+        for i, product in enumerate(products, 1):
+            export_data.append({
+                'ID': i,
+                'Título': product.get('title', ''),
+                'Precio': product.get('price', ''),
+                'Tienda': product.get('source', ''),
+                'Descripción': product.get('description', ''),
+                'URL': product.get('link', ''),
+                'Método': product.get('method', 'Google Shopping'),
+                'Búsqueda': search_query,
+                'Fecha': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        df_export = pd.DataFrame(export_data)
+        
+        # Generar CSV
+        csv = df_export.to_csv(index=False, encoding='utf-8')
+        
+        # Botón de descarga
+        st.download_button(
+            label="📥 Descargar resultados (CSV)",
+            data=csv,
+            file_name=f"google_shopping_{search_query.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        
+        # Resumen final
+        st.markdown("---")
+        st.markdown("### 📈 Resumen del Análisis")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.info(f"**Total productos**: {len(products)}")
+        with col2:
+            if analysis.get('price_ranges'):
+                st.info(f"**Rango precios**: {analysis['price_ranges']['min']:.0f}€ - {analysis['price_ranges']['max']:.0f}€")
+            else:
+                st.info("**Precios**: No disponibles")
+        with col3:
+            st.info(f"**Tiendas únicas**: {len(analysis.get('sources', {}))}")
+    
+    else:
+        # No se encontraron productos
+        st.error("❌ No se encontraron productos para esta búsqueda")
+        
+        # Sugerencias de mejora
+        st.markdown("### 💡 Sugerencias para mejorar la búsqueda:")
+        st.markdown("""
+        1. **Prueba términos más generales**: En lugar de "auriculares Sony WH-1000XM4", prueba "auriculares Sony"
+        2. **Usa palabras clave del producto**: Incluye tipo de producto + marca o característica principal
+        3. **Evita caracteres especiales**: Usa solo letras y números
+        4. **Prueba en español**: Los resultados pueden ser mejores con términos en español
+        
+        **Ejemplos de búsquedas que funcionan bien:**
+        - "televisor samsung 55 pulgadas"
+        - "portatil gaming"
+        - "zapatillas running nike"
+        - "robot aspirador"
+        - "cafetera nespresso"
+        """)
+        
+        # Alternativa: búsqueda manual
+        with st.expander("🔧 Alternativa: Análisis manual de URLs"):
+            st.markdown("""
+            Si Google Shopping no funciona para tu búsqueda, puedes:
+            
+            1. Buscar manualmente los productos en diferentes tiendas
+            2. Copiar las URLs de los productos
+            3. Usar la pestaña "Análisis de URLs" para analizarlos
+            
+            **Sitios recomendados para buscar:**
+            - Amazon.es
+            - eBay.es
+            - AliExpress.com
+            - Sitios específicos del sector
+            """)
+            
+            # Botón para ir a análisis de URLs
+            if st.button("Ir a Análisis de URLs →"):
+                st.info("👆 Usa la pestaña 'Análisis de URLs' arriba")
     
     with tab3:  # Comparación
         st.header("📈 Comparación Visual")
