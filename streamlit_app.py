@@ -528,9 +528,11 @@ ANÁLISIS DE PRECIO:
             shopping_analyzer = GoogleShoppingAnalyzer()
             
             with st.spinner("Buscando productos..."):
-                products = shopping_analyzer.search_products_free(search_query, num_results)
-            
-            if products:
+                products, error = shopping_analyzer.search_products_free(search_query, num_results)
+
+            if error:
+                st.error(f"No se pudieron obtener resultados: {error}")
+            elif products:
                 st.success(f"✅ Se encontraron {len(products)} productos")
                 
                 analysis = shopping_analyzer.analyze_shopping_data(products)
@@ -596,7 +598,7 @@ ANÁLISIS DE PRECIO:
                         fig.update_layout(height=500, yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig, use_container_width=True)
             else:
-                st.error("No se encontraron productos. Intenta con otro término.")
+                st.warning("No se encontraron productos. Intenta con otro término.")
     
     with tab3:  # Comparación
         st.header("📈 Comparación Visual")
@@ -790,14 +792,21 @@ class GoogleShoppingAnalyzer:
             Término de búsqueda.
         num_results: int
             Número aproximado de resultados a recuperar.
+
+        Returns
+        -------
+        tuple[list[dict], str | None]
+            Una lista de productos y un mensaje de error si algo falla.
         """
         url = f"https://www.google.com/search?tbm=shop&q={quote_plus(query)}&num={num_results}"
         products = []
+        error = None
         try:
             resp = requests.get(url, headers=self._get_headers(), timeout=10)
+            resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
 
-            for item in soup.select("div.sh-dgr__content"):
+            for item in soup.select("div.sh-dgr__grid-result, div.sh-dgr__content"):
                 title_el = item.select_one("h3")
                 price_el = item.select_one("span.a8Pemb")
                 source_el = item.select_one("div.aULzUe span")
@@ -805,19 +814,24 @@ class GoogleShoppingAnalyzer:
                 products.append({
                     "title": title_el.get_text(strip=True) if title_el else "",
                     "price": price_el.get_text(strip=True) if price_el else "",
-                    "source": source_el.get_text(strip=True) if source_el else ""
+                    "source": source_el.get_text(strip=True) if source_el else "",
                 })
 
                 if len(products) >= num_results:
                     break
-        except Exception:
-            # En caso de fallo, devolver lista vacía para evitar errores en la app
-            return []
+        except Exception as e:
+            error = str(e)
 
-        return products
+        return products, error
 
     def analyze_shopping_data(self, products):
-        """Realiza un análisis simple de los productos obtenidos."""
+        """Realiza un análisis simple de los productos obtenidos.
+
+        Returns
+        -------
+        dict
+            Contiene las claves ``sources``, ``price_ranges`` y ``common_terms``.
+        """
         if not products:
             return {}
 
@@ -841,13 +855,14 @@ class GoogleShoppingAnalyzer:
             terms.update(re.findall(r"\w+", p.get("title", "").lower()))
 
         return {
-            "stores": dict(store_counts),
-            "price_stats": {
-                "min": min(prices) if prices else None,
-                "max": max(prices) if prices else None,
-                "avg": sum(prices) / len(prices) if prices else None,
+            "sources": dict(store_counts),
+            "price_ranges": {
+                "min": min(prices) if prices else 0.0,
+                "max": max(prices) if prices else 0.0,
+                "avg": (sum(prices) / len(prices)) if prices else 0.0,
+                "count": len(prices),
             },
-            "terms": dict(terms.most_common(20)),
+            "common_terms": terms,
         }
 
 class ProductBenchmarkAnalyzer:
