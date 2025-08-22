@@ -761,6 +761,95 @@ ANÁLISIS DE PRECIO:
     </div>
     """, unsafe_allow_html=True)
 
+class GoogleShoppingAnalyzer:
+    """Obtiene resultados básicos de Google Shopping y realiza un análisis simple."""
+
+    def __init__(self):
+        # Cabeceras aleatorias para evitar bloqueos sencillos
+        self.headers_options = [
+            {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+            },
+            {
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept-Language': 'es,en-US;q=0.7,en;q=0.3'
+            }
+        ]
+
+    def _get_headers(self):
+        """Devuelve cabeceras aleatorias."""
+        return random.choice(self.headers_options)
+
+    def search_products_free(self, query, num_results=10):
+        """Busca productos en Google Shopping sin necesidad de API.
+
+        Parameters
+        ----------
+        query: str
+            Término de búsqueda.
+        num_results: int
+            Número aproximado de resultados a recuperar.
+        """
+        url = f"https://www.google.com/search?tbm=shop&q={quote_plus(query)}&num={num_results}"
+        products = []
+        try:
+            resp = requests.get(url, headers=self._get_headers(), timeout=10)
+            soup = BeautifulSoup(resp.text, "html.parser")
+
+            for item in soup.select("div.sh-dgr__content"):
+                title_el = item.select_one("h3")
+                price_el = item.select_one("span.a8Pemb")
+                source_el = item.select_one("div.aULzUe span")
+
+                products.append({
+                    "title": title_el.get_text(strip=True) if title_el else "",
+                    "price": price_el.get_text(strip=True) if price_el else "",
+                    "source": source_el.get_text(strip=True) if source_el else ""
+                })
+
+                if len(products) >= num_results:
+                    break
+        except Exception:
+            # En caso de fallo, devolver lista vacía para evitar errores en la app
+            return []
+
+        return products
+
+    def analyze_shopping_data(self, products):
+        """Realiza un análisis simple de los productos obtenidos."""
+        if not products:
+            return {}
+
+        # Conteo de tiendas
+        store_counts = Counter(p.get("source", "Desconocido") for p in products)
+
+        # Conversión de precios a valores numéricos
+        prices = []
+        for p in products:
+            price = p.get("price")
+            if price:
+                value = re.sub(r"[^0-9.,]", "", price).replace(",", ".")
+                try:
+                    prices.append(float(value))
+                except Exception:
+                    pass
+
+        # Términos más frecuentes de los títulos
+        terms = Counter()
+        for p in products:
+            terms.update(re.findall(r"\w+", p.get("title", "").lower()))
+
+        return {
+            "stores": dict(store_counts),
+            "price_stats": {
+                "min": min(prices) if prices else None,
+                "max": max(prices) if prices else None,
+                "avg": sum(prices) / len(prices) if prices else None,
+            },
+            "terms": dict(terms.most_common(20)),
+        }
+
 class ProductBenchmarkAnalyzer:
     def __init__(self):
         """Inicializa el analizador con stopwords mejoradas"""
