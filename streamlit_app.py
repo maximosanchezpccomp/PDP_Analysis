@@ -1,3 +1,61 @@
+import streamlit as st
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+from collections import Counter
+import re
+from urllib.parse import urlparse, quote_plus
+import time
+import nltk
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import plotly.graph_objects as go
+import warnings
+import json
+import random
+from datetime import datetime
+
+# Importar wordcloud de forma opcional
+try:
+    from wordcloud import WordCloud
+    WORDCLOUD_AVAILABLE = True
+except ImportError:
+    WORDCLOUD_AVAILABLE = False
+
+# Suprimir advertencias
+warnings.filterwarnings('ignore')
+
+# Configuración inicial de la página
+st.set_page_config(
+    page_title="Análisis Competitivo de Productos",
+    page_icon="🎯",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Descargar recursos de NLTK si es necesario
+@st.cache_resource
+def download_nltk_data():
+    """Descarga datos de NLTK necesarios"""
+    try:
+        nltk.data.find('tokenizers/punkt')
+    except LookupError:
+        try:
+            nltk.download('punkt', quiet=True)
+        except Exception:
+            pass
+
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        try:
+            nltk.download('stopwords', quiet=True)
+        except Exception:
+            pass
+
+download_nltk_data()
+
 def main():
     # CSS personalizado mejorado
     st.markdown("""
@@ -702,65 +760,6 @@ ANÁLISIS DE PRECIO:
     </div>
     """, unsafe_allow_html=True)
 
-if __name__ == "__main__":
-    main()import streamlit as st
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
-from collections import Counter
-import re
-from urllib.parse import urlparse, quote_plus
-import time
-import nltk
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-import warnings
-import json
-import random
-from datetime import datetime
-
-# Importar wordcloud de forma opcional
-try:
-    from wordcloud import WordCloud
-    WORDCLOUD_AVAILABLE = True
-except ImportError:
-    WORDCLOUD_AVAILABLE = False
-
-# Suprimir advertencias
-warnings.filterwarnings('ignore')
-
-# Configuración inicial de la página
-st.set_page_config(
-    page_title="Análisis Competitivo de Productos",
-    page_icon="🎯",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Descargar recursos de NLTK si es necesario
-@st.cache_resource
-def download_nltk_data():
-    """Descarga datos de NLTK necesarios"""
-    try:
-        nltk.data.find('tokenizers/punkt')
-    except LookupError:
-        try:
-            nltk.download('punkt', quiet=True)
-        except:
-            pass
-    
-    try:
-        nltk.data.find('corpora/stopwords')
-    except LookupError:
-        try:
-            nltk.download('stopwords', quiet=True)
-        except:
-            pass
-
-download_nltk_data()
-
 class ProductBenchmarkAnalyzer:
     def __init__(self):
         """Inicializa el analizador con stopwords mejoradas"""
@@ -1372,3 +1371,7 @@ class ProductBenchmarkAnalyzer:
             except:
                 return None
         return None
+
+
+if __name__ == "__main__":
+    main()
