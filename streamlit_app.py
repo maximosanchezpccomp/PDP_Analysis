@@ -15,6 +15,7 @@ import warnings
 import json
 import random
 from datetime import datetime
+import os
 
 # Importar wordcloud de forma opcional
 try:
@@ -170,6 +171,13 @@ def main():
     retry_403 = st.sidebar.checkbox("🔄 Reintentar bloqueados", value=True)
     aggressive_mode = st.sidebar.checkbox("🚀 Modo agresivo", value=False)
     rotate_headers = st.sidebar.checkbox("🔄 Rotar User-Agents", value=False)
+    use_zenrow = st.sidebar.checkbox("Usar Zenrow", value=False)
+    zenrow_api_key = st.secrets.get("ZENROW_API_KEY", None)
+    if not zenrow_api_key:
+        zenrow_api_key = os.environ.get("ZENROW_API_KEY")
+    if use_zenrow and not zenrow_api_key:
+        st.sidebar.warning("⚠️ No se encontró la clave API de Zenrow. Añádela en .streamlit/secrets.toml o como variable de entorno.")
+        use_zenrow = False
     
     if aggressive_mode:
         delay = max(delay, 3.0)
@@ -239,7 +247,7 @@ https://www.aliexpress.com/item/1005001234567890.html""",
             )
         
         if analyze_button:
-            analyzer = ProductBenchmarkAnalyzer()
+            analyzer = ProductBenchmarkAnalyzer(use_zenrow=use_zenrow)
             
             # Progreso
             st.markdown("### 🔄 Procesando URLs...")
@@ -267,7 +275,7 @@ https://www.aliexpress.com/item/1005001234567890.html""",
                 if i > 0:
                     time.sleep(delay * 1.5 if aggressive_mode else delay)
                 
-                data = analyzer.extract_content_from_url(url, rotate_headers)
+                data = analyzer.extract_content_from_url(url, rotate_headers, use_zenrow)
                 
                 if data:
                     if url_type == 'reference':
@@ -284,7 +292,7 @@ https://www.aliexpress.com/item/1005001234567890.html""",
                     if retry_403:
                         status_text.markdown(f'🔄 **Reintentando...**')
                         time.sleep(5)
-                        retry_data = analyzer.extract_content_from_url(url, True)
+                        retry_data = analyzer.extract_content_from_url(url, True, use_zenrow)
                         if retry_data:
                             if url_type == 'reference':
                                 reference_data = retry_data
@@ -986,7 +994,7 @@ ANÁLISIS DE PRECIO:
 class GoogleShoppingAnalyzer:
     """Analizador mejorado de Google Shopping con manejo de errores robusto"""
     
-    def __init__(self):
+    def __init__(self, use_zenrow=False):
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -1456,6 +1464,34 @@ class GoogleShoppingAnalyzer:
         analysis['common_terms'] = Counter(filtered)
         
         return analysis
+
+
+def fetch_html_via_zenrow(url):
+    """Obtiene el HTML de una página utilizando la API de Zenrow."""
+    api_key = None
+    try:
+        api_key = st.secrets["ZENROW_API_KEY"]
+    except Exception:
+        api_key = os.environ.get("ZENROW_API_KEY")
+
+    if not api_key:
+        return None
+
+    zenrow_url = (
+        f"https://api.zenrows.com/v1/?url={quote_plus(url)}&apikey={api_key}"
+        "&render=true&autoparse=false"
+    )
+    try:
+        response = requests.get(zenrow_url, timeout=30)
+        response.raise_for_status()
+        return response.text
+    except requests.exceptions.HTTPError:
+        st.warning(
+            f"Zenrow status {response.status_code} for {url[:50]}..."
+        )
+    except requests.RequestException as e:
+        st.warning(f"Error usando Zenrow: {e}")
+    return None
         
 class ProductBenchmarkAnalyzer:
     def __init__(self):
@@ -1510,6 +1546,11 @@ class ProductBenchmarkAnalyzer:
         except:
             # Fallback mínimo
             self.stop_words = set(['el', 'la', 'de', 'que', 'y', 'a', 'en', 'the', 'and', 'or', 'añadir', 'carrito', 'entrega', 'envio'])
+
+        self.use_zenrow = use_zenrow
+        self.zenrow_api_key = st.secrets.get("ZENROW_API_KEY", None)
+        if not self.zenrow_api_key:
+            self.zenrow_api_key = os.environ.get("ZENROW_API_KEY")
         
         self.results = []
         self.headers_options = [
@@ -1538,42 +1579,49 @@ class ProductBenchmarkAnalyzer:
             }
         ]
         
-    def extract_content_from_url(self, url, rotate_headers=False):
+def extract_content_from_url(self, url, rotate_headers=False, use_zenrow=False):
         """Extrae contenido relevante de una URL de producto"""
         try:
+            if use_zenrow is None:
+                use_zenrow = self.use_zenrow
+
             # Seleccionar headers
             if rotate_headers:
                 headers = random.choice(self.headers_options)
             else:
                 headers = self.headers_options[0]
-            
+
             # Usar session para mantener cookies
             session = requests.Session()
             session.headers.update(headers)
-            
-            response = session.get(url, timeout=20, allow_redirects=True)
-            
-            # Si obtenemos 403, intentamos estrategias adicionales
-            if response.status_code == 403:
-                # Estrategia 1: Headers mínimos
-                minimal_headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
-                }
-                session.headers.clear()
-                session.headers.update(minimal_headers)
-                time.sleep(3)
+
+            if use_zenrow and self.zenrow_api_key:
+                zenrow_url = f"https://api.zenrows.com/v1/?url={quote_plus(url)}&apikey={self.zenrow_api_key}"
+                response = session.get(zenrow_url, timeout=20, allow_redirects=True)
+            else:
                 response = session.get(url, timeout=20, allow_redirects=True)
-                
-                # Estrategia 2: Si sigue fallando, probar con otro user-agent
+
+                # Si obtenemos 403, intentamos estrategias adicionales
                 if response.status_code == 403:
-                    session.headers.update({
-                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
-                    })
-                    time.sleep(5)
+                    # Estrategia 1: Headers mínimos
+                    minimal_headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
+                    }
+                    session.headers.clear()
+                    session.headers.update(minimal_headers)
+                    time.sleep(3)
                     response = session.get(url, timeout=20, allow_redirects=True)
-            
+
+                    # Estrategia 2: Si sigue fallando, probar con otro user-agent
+                    if response.status_code == 403:
+                        session.headers.update({
+                            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+                        })
+                        time.sleep(5)
+                        response = session.get(url, timeout=20, allow_redirects=True)
+
             response.raise_for_status()
-            
+
             soup = BeautifulSoup(response.content, 'html.parser')
             
             # Extraer información del producto
