@@ -1579,7 +1579,7 @@ class ProductBenchmarkAnalyzer:
             }
         ]
         
-def extract_content_from_url(self, url, rotate_headers=False, use_zenrow=False):
+    def extract_content_from_url(self, url, rotate_headers=False, use_zenrow=False):
         """Extrae contenido relevante de una URL de producto"""
         try:
             if use_zenrow is None:
