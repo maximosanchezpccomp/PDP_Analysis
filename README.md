@@ -29,14 +29,14 @@ Herramienta avanzada de análisis competitivo que extrae y compara información 
 ### 1. Fork o Clona el Repositorio
 
 ```bash
-git clone https://github.com/tu-usuario/tu-repo.git
+git clone https://github.com/maximosanchezpccomp/PDP_Analysis.git
 cd tu-repo
 ```
 
 ### 2. Estructura de Archivos Requerida
 
 ```
-tu-repositorio/
+PDP_Anlysis/
 ├── streamlit_app.py          # Archivo principal (OBLIGATORIO)
 ├── requirements.txt          # Dependencias
 ├── README.md                # Este archivo
@@ -62,10 +62,10 @@ git push origin main
 5. Main file: `streamlit_app.py`
 6. Click en "Deploy"
 
-### 5. URL de tu App
+### 5. URL de la App
 
 ```
-https://tu-app-name.streamlit.app
+[https://tu-app-name.streamlit.app] (https://pdpanalysis.streamlit.app/)
 ```
 
 ## 💻 Instalación Local
@@ -233,9 +233,9 @@ Este proyecto está bajo licencia MIT. Ver `LICENSE` para más información.
 
 ## 🆘 Soporte
 
-- 📧 Email: tu-email@ejemplo.com
-- 🐛 Issues: [GitHub Issues](https://github.com/tu-usuario/tu-repo/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/tu-usuario/tu-repo/discussions)
+- 📧 Email: maximo.sanchez@pccomponentes.com
+- 🐛 Issues: [GitHub Issues](https://github.com/maximosanchezpccomp/PDP_analysis/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/maximosanchezpccomp/PDP_analysis/discussions)
 
 ## 🙏 Agradecimientos
 
