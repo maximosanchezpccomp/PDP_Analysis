@@ -172,12 +172,16 @@ def main():
     aggressive_mode = st.sidebar.checkbox("🚀 Modo agresivo", value=False)
     rotate_headers = st.sidebar.checkbox("🔄 Rotar User-Agents", value=False)
     use_zenrow = st.sidebar.checkbox("Usar Zenrow", value=False)
-    zenrow_api_key = st.secrets.get("ZENROW_API_KEY", None)
-    if not zenrow_api_key:
-        zenrow_api_key = os.environ.get("ZENROW_API_KEY")
-    if use_zenrow and not zenrow_api_key:
-        st.sidebar.warning("⚠️ No se encontró la clave API de Zenrow. Añádela en .streamlit/secrets.toml o como variable de entorno.")
-        use_zenrow = False
+    zenrow_api_key = None
+    if use_zenrow:
+        zenrow_api_key = st.sidebar.text_input(
+            "ZenRows API Key",
+            type="password",
+            help="Introduce tu clave de ZenRows"
+        )
+        if not zenrow_api_key:
+            st.sidebar.warning("⚠️ Ingresa tu clave API de ZenRows para habilitar la función")
+            use_zenrow = False
     
     if aggressive_mode:
         delay = max(delay, 3.0)
@@ -247,7 +251,7 @@ https://www.aliexpress.com/item/1005001234567890.html""",
             )
         
         if analyze_button:
-            analyzer = ProductBenchmarkAnalyzer(use_zenrow=use_zenrow)
+            analyzer = ProductBenchmarkAnalyzer(use_zenrow=use_zenrow, zenrow_api_key=zenrow_api_key)
             
             # Progreso
             st.markdown("### 🔄 Procesando URLs...")
@@ -1466,14 +1470,8 @@ class GoogleShoppingAnalyzer:
         return analysis
 
 
-def fetch_html_via_zenrow(url):
+def fetch_html_via_zenrow(url, api_key):
     """Obtiene el HTML de una página utilizando la API de Zenrow."""
-    api_key = None
-    try:
-        api_key = st.secrets["ZENROW_API_KEY"]
-    except Exception:
-        api_key = os.environ.get("ZENROW_API_KEY")
-
     if not api_key:
         return None
 
@@ -1494,7 +1492,7 @@ def fetch_html_via_zenrow(url):
     return None
         
 class ProductBenchmarkAnalyzer:
-    def __init__(self):
+    def __init__(self, use_zenrow=False, zenrow_api_key=None):
         """Inicializa el analizador con stopwords mejoradas"""
         try:
             # Stopwords básicas en español e inglés
@@ -1548,9 +1546,7 @@ class ProductBenchmarkAnalyzer:
             self.stop_words = set(['el', 'la', 'de', 'que', 'y', 'a', 'en', 'the', 'and', 'or', 'añadir', 'carrito', 'entrega', 'envio'])
 
         self.use_zenrow = use_zenrow
-        self.zenrow_api_key = st.secrets.get("ZENROW_API_KEY", None)
-        if not self.zenrow_api_key:
-            self.zenrow_api_key = os.environ.get("ZENROW_API_KEY")
+        self.zenrow_api_key = zenrow_api_key or os.environ.get("ZENROW_API_KEY")
         
         self.results = []
         self.headers_options = [
@@ -1654,8 +1650,7 @@ class ProductBenchmarkAnalyzer:
             return None
         except Exception as e:
             st.warning(f"⚠️ Error procesando {url[:50]}...: {str(e)}")
-            return None
-    
+            return None   
     def _suggest_alternatives(self, domain):
         """Sugiere alternativas para sitios bloqueados"""
         alternatives = {
