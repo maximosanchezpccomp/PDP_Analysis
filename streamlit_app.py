@@ -764,107 +764,497 @@ ANÁLISIS DE PRECIO:
     """, unsafe_allow_html=True)
 
 class GoogleShoppingAnalyzer:
-    """Obtiene resultados básicos de Google Shopping y realiza un análisis simple."""
-
+    """Analizador mejorado de Google Shopping con múltiples métodos de extracción"""
+    
     def __init__(self):
-        # Cabeceras aleatorias para evitar bloqueos sencillos
-        self.headers_options = [
-            {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
-            },
-            {
-                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept-Language': 'es,en-US;q=0.7,en;q=0.3'
-            }
-        ]
-
-    def _get_headers(self):
-        """Devuelve cabeceras aleatorias."""
-        return random.choice(self.headers_options)
-
-    def search_products_free(self, query, num_results=10):
-        """Busca productos en Google Shopping sin necesidad de API.
-
-        Parameters
-        ----------
-        query: str
-            Término de búsqueda.
-        num_results: int
-            Número aproximado de resultados a recuperar.
-
-        Returns
-        -------
-        tuple[list[dict], str | None]
-            Una lista de productos y un mensaje de error si algo falla.
-        """
-        url = f"https://www.google.com/search?tbm=shop&q={quote_plus(query)}&num={num_results}"
-        products = []
-        error = None
-        try:
-            resp = requests.get(url, headers=self._get_headers(), timeout=10)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-
-            for item in soup.select("div.sh-dgr__grid-result, div.sh-dgr__content"):
-                title_el = item.select_one("h3")
-                price_el = item.select_one("span.a8Pemb")
-                source_el = item.select_one("div.aULzUe span")
-
-                products.append({
-                    "title": title_el.get_text(strip=True) if title_el else "",
-                    "price": price_el.get_text(strip=True) if price_el else "",
-                    "source": source_el.get_text(strip=True) if source_el else "",
-                })
-
-                if len(products) >= num_results:
-                    break
-        except Exception as e:
-            error = str(e)
-
-        return products, error
-
-    def analyze_shopping_data(self, products):
-        """Realiza un análisis simple de los productos obtenidos.
-
-        Returns
-        -------
-        dict
-            Contiene las claves ``sources``, ``price_ranges`` y ``common_terms``.
-        """
-        if not products:
-            return {}
-
-        # Conteo de tiendas
-        store_counts = Counter(p.get("source", "Desconocido") for p in products)
-
-        # Conversión de precios a valores numéricos
-        prices = []
-        for p in products:
-            price = p.get("price")
-            if price:
-                value = re.sub(r"[^0-9.,]", "", price).replace(",", ".")
-                try:
-                    prices.append(float(value))
-                except Exception:
-                    pass
-
-        # Términos más frecuentes de los títulos
-        terms = Counter()
-        for p in products:
-            terms.update(re.findall(r"\w+", p.get("title", "").lower()))
-
-        return {
-            "sources": dict(store_counts),
-            "price_ranges": {
-                "min": min(prices) if prices else 0.0,
-                "max": max(prices) if prices else 0.0,
-                "avg": (sum(prices) / len(prices)) if prices else 0.0,
-                "count": len(prices),
-            },
-            "common_terms": terms,
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0'
         }
-
+    
+    def search_products_free(self, query, num_results=20, country='es'):
+        """
+        Método mejorado para buscar productos en Google Shopping
+        """
+        products = []
+        
+        # Método 1: Google Shopping directo
+        products = self._search_google_shopping(query, num_results, country)
+        
+        # Método 2: Si falla, intentar búsqueda regular de Google con filtro de shopping
+        if len(products) < 5:
+            products.extend(self._search_google_regular(query, num_results, country))
+        
+        # Método 3: Búsqueda alternativa con diferentes parámetros
+        if len(products) < 5:
+            products.extend(self._search_alternative(query, num_results, country))
+        
+        # Eliminar duplicados manteniendo orden
+        seen = set()
+        unique_products = []
+        for product in products:
+            # Crear una key única basada en título y precio
+            key = f"{product.get('title', '')[:50]}_{product.get('price', '')}"
+            if key not in seen:
+                seen.add(key)
+                unique_products.append(product)
+        
+        return unique_products[:num_results]
+    
+    def _search_google_shopping(self, query, num_results, country='es'):
+        """Búsqueda en Google Shopping"""
+        try:
+            # URLs para diferentes regiones
+            base_urls = {
+                'es': 'https://www.google.es/search',
+                'com': 'https://www.google.com/search',
+                'mx': 'https://www.google.com.mx/search'
+            }
+            
+            base_url = base_urls.get(country, base_urls['es'])
+            
+            # Parámetros optimizados para Google Shopping
+            params = {
+                'q': query,
+                'tbm': 'shop',  # Modo shopping
+                'hl': 'es',     # Idioma
+                'gl': country,  # País
+                'num': num_results,
+                'safe': 'off',
+                'tbs': 'vw:g'   # Vista de grid
+            }
+            
+            url = base_url + '?' + '&'.join([f"{k}={quote_plus(str(v))}" for k, v in params.items()])
+            
+            response = requests.get(url, headers=self.headers, timeout=15)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            products = []
+            
+            # Selectores actualizados para Google Shopping 2024-2025
+            product_selectors = [
+                # Selectores principales de Google Shopping
+                'div[class*="sh-dgr__content"]',
+                'div[class*="sh-pr__product-results"] div[class*="sh-dlr__list-result"]',
+                'div[class*="KZmu8e"]',
+                'div[class*="i0X6df"]',
+                'div[data-docid]',
+                'div[class*="u30d4"]',
+                'div[class*="Rn1jbe"]',
+                # Selectores de cards de productos
+                'div[jsname="N9Xkfe"]',
+                'div[data-merchant-id]',
+                'div[class*="xcR77"]'
+            ]
+            
+            for selector in product_selectors:
+                elements = soup.select(selector)
+                if elements:
+                    for element in elements[:num_results]:
+                        product = self._extract_product_from_element(element)
+                        if product and product.get('title'):
+                            products.append(product)
+                    
+                    if len(products) >= 5:  # Si encontramos suficientes productos, salir
+                        break
+            
+            # Si no encontramos productos con selectores específicos, buscar de forma más general
+            if len(products) < 5:
+                products.extend(self._extract_products_generic(soup, num_results))
+            
+            return products
+            
+        except Exception as e:
+            st.warning(f"⚠️ Error en búsqueda de Google Shopping: {str(e)}")
+            return []
+    
+    def _search_google_regular(self, query, num_results, country='es'):
+        """Búsqueda en Google regular con términos de shopping"""
+        try:
+            # Modificar query para incluir términos de shopping
+            shopping_query = f"{query} comprar precio tienda online"
+            
+            base_url = f"https://www.google.{country}/search"
+            params = {
+                'q': shopping_query,
+                'num': num_results,
+                'hl': 'es',
+                'gl': country
+            }
+            
+            url = base_url + '?' + '&'.join([f"{k}={quote_plus(str(v))}" for k, v in params.items()])
+            
+            response = requests.get(url, headers=self.headers, timeout=15)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            products = []
+            
+            # Buscar resultados que parezcan productos
+            result_divs = soup.select('div.g, div[class*="result"], div[data-hveid]')
+            
+            for div in result_divs[:num_results]:
+                # Extraer información que parezca de producto
+                title_elem = div.select_one('h3, a')
+                if title_elem:
+                    title = title_elem.get_text().strip()
+                    
+                    # Buscar precio en el texto
+                    price = self._extract_price_from_text(div.get_text())
+                    
+                    # Extraer URL
+                    link_elem = div.select_one('a[href]')
+                    link = link_elem.get('href', '') if link_elem else ''
+                    
+                    # Identificar tienda
+                    source = self._extract_source_from_url(link)
+                    
+                    if title and (price or 'precio' in title.lower() or '€' in div.get_text()):
+                        products.append({
+                            'title': title,
+                            'price': price or 'Consultar precio',
+                            'source': source,
+                            'link': link,
+                            'description': title,
+                            'method': 'Google Search'
+                        })
+            
+            return products
+            
+        except Exception as e:
+            st.warning(f"⚠️ Error en búsqueda regular: {str(e)}")
+            return []
+    
+    def _search_alternative(self, query, num_results, country='es'):
+        """Método alternativo usando búsqueda de imágenes de productos"""
+        try:
+            # Búsqueda de imágenes de Google Shopping
+            base_url = f"https://www.google.{country}/search"
+            params = {
+                'q': query,
+                'tbm': 'isch',  # Imágenes
+                'tbs': 'cat:530',  # Categoría de productos
+                'hl': 'es',
+                'gl': country
+            }
+            
+            url = base_url + '?' + '&'.join([f"{k}={quote_plus(str(v))}" for k, v in params.items()])
+            
+            response = requests.get(url, headers=self.headers, timeout=15)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            products = []
+            
+            # Buscar metadatos de productos en las imágenes
+            scripts = soup.find_all('script')
+            for script in scripts:
+                text = script.string
+                if text and 'data:' in text:
+                    # Buscar patrones de productos en JSON
+                    products.extend(self._extract_products_from_json(text))
+            
+            return products[:num_results]
+            
+        except Exception as e:
+            st.warning(f"⚠️ Error en búsqueda alternativa: {str(e)}")
+            return []
+    
+    def _extract_product_from_element(self, element):
+        """Extrae información del producto de un elemento HTML"""
+        try:
+            product = {}
+            
+            # Título - múltiples selectores
+            title_selectors = [
+                'h3', 'h4', 'a[class*="DdKZJb"]', 
+                'div[class*="rgHvZc"]', 'div[class*="EI11Pd"]',
+                'span[class*="Q8U8"]', 'div[class*="Xjkr3b"]',
+                'div[class*="ArOc1c"]', 'a[aria-label]'
+            ]
+            
+            for selector in title_selectors:
+                title_elem = element.select_one(selector)
+                if title_elem:
+                    title_text = title_elem.get_text().strip()
+                    if not title_text and title_elem.get('aria-label'):
+                        title_text = title_elem.get('aria-label')
+                    if title_text and len(title_text) > 10:
+                        product['title'] = title_text
+                        break
+            
+            # Precio - múltiples selectores
+            price_selectors = [
+                'span[class*="a8Pemb"]', 'span[class*="OFFNJ"]',
+                'div[class*="OFFNJ"]', 'span[class*="Nr22bf"]',
+                'span[class*="HRLxBb"]', 'div[class*="HRLxBb"]',
+                'span:contains("€")', 'span:contains("EUR")',
+                '*[aria-label*="precio"]', '*[aria-label*="€"]'
+            ]
+            
+            for selector in price_selectors:
+                if ':contains' in selector:
+                    # Buscar elementos que contengan el símbolo de euro
+                    price_elems = element.find_all(text=re.compile('[€$]|EUR'))
+                    for price_text in price_elems:
+                        if price_text and '€' in str(price_text):
+                            product['price'] = str(price_text).strip()
+                            break
+                else:
+                    price_elem = element.select_one(selector)
+                    if price_elem:
+                        price_text = price_elem.get_text().strip()
+                        if not price_text and price_elem.get('aria-label'):
+                            price_text = price_elem.get('aria-label')
+                        if price_text and ('€' in price_text or 'EUR' in price_text or re.search(r'\d', price_text)):
+                            product['price'] = price_text
+                            break
+            
+            # Tienda/Vendedor
+            source_selectors = [
+                'span[class*="aULzUe"]', 'span[class*="IuHnof"]',
+                'div[class*="IuHnof"]', 'span[class*="vjtvZe"]',
+                'div[class*="dD8iuc"]', 'span[class*="zPEcBd"]',
+                'cite', 'span.VuuXrf'
+            ]
+            
+            for selector in source_selectors:
+                source_elem = element.select_one(selector)
+                if source_elem:
+                    source_text = source_elem.get_text().strip()
+                    if source_text and len(source_text) > 2:
+                        product['source'] = source_text
+                        break
+            
+            # Link
+            link_elem = element.select_one('a[href]')
+            if link_elem:
+                href = link_elem.get('href', '')
+                if href.startswith('/url?'):
+                    # Extraer URL real de Google redirect
+                    import urllib.parse
+                    parsed = urllib.parse.parse_qs(urllib.parse.urlparse(href).query)
+                    if 'q' in parsed:
+                        product['link'] = parsed['q'][0]
+                    elif 'url' in parsed:
+                        product['link'] = parsed['url'][0]
+                    else:
+                        product['link'] = href
+                elif href.startswith('http'):
+                    product['link'] = href
+                else:
+                    product['link'] = 'https://www.google.com' + href
+            
+            # Descripción adicional
+            desc_elem = element.select_one('div[class*="VwiC3b"], span[class*="aCOpRe"]')
+            if desc_elem:
+                product['description'] = desc_elem.get_text().strip()
+            elif product.get('title'):
+                product['description'] = product['title']
+            
+            # Validar que tengamos al menos título
+            if product.get('title'):
+                product['method'] = 'Google Shopping'
+                return product
+                
+        except Exception as e:
+            pass
+        
+        return None
+    
+    def _extract_products_generic(self, soup, num_results):
+        """Extracción genérica cuando los selectores específicos fallan"""
+        products = []
+        
+        try:
+            # Buscar cualquier div que parezca contener un producto
+            all_divs = soup.find_all('div', limit=200)
+            
+            for div in all_divs:
+                text = div.get_text()
+                
+                # Heurística: si contiene precio, probablemente es un producto
+                if '€' in text or 'EUR' in text or re.search(r'\d+[,\.]\d{2}', text):
+                    # Buscar título (primer texto largo)
+                    lines = [line.strip() for line in text.split('\n') if line.strip()]
+                    
+                    title = None
+                    price = None
+                    source = None
+                    
+                    for line in lines:
+                        if not title and len(line) > 20 and len(line) < 200:
+                            title = line
+                        if not price and ('€' in line or 'EUR' in line):
+                            price = line
+                        if not source and len(line) < 50 and ('.' in line or 'tienda' in line.lower()):
+                            source = line
+                    
+                    if title:
+                        products.append({
+                            'title': title,
+                            'price': price or 'Ver precio',
+                            'source': source or 'Tienda online',
+                            'link': '#',
+                            'description': title,
+                            'method': 'Generic extraction'
+                        })
+                        
+                        if len(products) >= num_results:
+                            break
+            
+        except Exception as e:
+            pass
+        
+        return products
+    
+    def _extract_price_from_text(self, text):
+        """Extrae precio de un texto"""
+        # Patrones de precio comunes
+        price_patterns = [
+            r'(\d+[,\.]\d{2})\s*€',
+            r'€\s*(\d+[,\.]\d{2})',
+            r'EUR\s*(\d+[,\.]\d{2})',
+            r'(\d+)\s*€',
+            r'€\s*(\d+)',
+            r'(\d+[,\.]\d+)\s*euros?'
+        ]
+        
+        for pattern in price_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(0)
+        
+        return None
+    
+    def _extract_source_from_url(self, url):
+        """Extrae el nombre de la tienda desde la URL"""
+        if not url:
+            return 'Tienda online'
+        
+        try:
+            from urllib.parse import urlparse
+            domain = urlparse(url).netloc
+            
+            # Limpiar subdominios comunes
+            domain = domain.replace('www.', '').replace('.com', '').replace('.es', '')
+            
+            # Capitalizar primera letra
+            return domain.split('.')[0].capitalize()
+        except:
+            return 'Tienda online'
+    
+    def _extract_products_from_json(self, text):
+        """Intenta extraer productos de datos JSON embebidos"""
+        products = []
+        
+        try:
+            # Buscar patrones JSON de productos
+            import json
+            
+            # Buscar arrays JSON
+            json_pattern = r'\[.*?"title".*?\]'
+            matches = re.findall(json_pattern, text, re.DOTALL)
+            
+            for match in matches:
+                try:
+                    data = json.loads(match)
+                    if isinstance(data, list):
+                        for item in data:
+                            if isinstance(item, dict) and 'title' in item:
+                                products.append({
+                                    'title': item.get('title', ''),
+                                    'price': item.get('price', 'Ver precio'),
+                                    'source': item.get('merchant', 'Tienda online'),
+                                    'link': item.get('link', '#'),
+                                    'description': item.get('description', item.get('title', '')),
+                                    'method': 'JSON extraction'
+                                })
+                except:
+                    pass
+        except:
+            pass
+        
+        return products
+    
+    def analyze_shopping_data(self, products):
+        """Analiza los datos obtenidos de Google Shopping"""
+        if not products:
+            return {
+                'total_products': 0,
+                'sources': {},
+                'price_ranges': None,
+                'common_terms': Counter()
+            }
+        
+        analysis = {
+            'total_products': len(products),
+            'sources': {},
+            'price_ranges': None,
+            'common_terms': Counter()
+        }
+        
+        # Análisis por fuente
+        for product in products:
+            source = product.get('source', 'Desconocido').strip()
+            if source:
+                analysis['sources'][source] = analysis['sources'].get(source, 0) + 1
+        
+        # Análisis de precios mejorado
+        prices = []
+        for product in products:
+            price_text = product.get('price', '')
+            if price_text and price_text != 'Ver precio' and price_text != 'Consultar precio':
+                # Mejorar extracción de números
+                price_numbers = re.findall(r'[\d,]+\.?\d*', price_text.replace(',', '.'))
+                for price_str in price_numbers:
+                    try:
+                        price = float(price_str.replace(',', '.'))
+                        if 0.01 < price < 100000:  # Rango razonable
+                            prices.append(price)
+                            break
+                    except:
+                        continue
+        
+        if prices:
+            analysis['price_ranges'] = {
+                'min': min(prices),
+                'max': max(prices),
+                'avg': sum(prices) / len(prices),
+                'median': sorted(prices)[len(prices)//2],
+                'count': len(prices)
+            }
+        
+        # Análisis de términos mejorado
+        all_text = ''
+        for product in products:
+            all_text += f" {product.get('title', '')} {product.get('description', '')} "
+        
+        # Tokenización mejorada
+        words = re.findall(r'\b[a-záéíóúñüA-ZÁÉÍÓÚÑÜ]{3,}\b', all_text)
+        
+        # Stopwords expandidas
+        stopwords = {
+            'para', 'con', 'por', 'del', 'las', 'los', 'una', 'uno', 'the', 'and', 
+            'for', 'with', 'desde', 'hasta', 'más', 'muy', 'todo', 'todos', 'nuevo',
+            'nueva', 'comprar', 'precio', 'oferta', 'envío', 'gratis', 'tienda',
+            'online', 'mejor', 'bueno', 'excelente', 'calidad', 'producto', 'venta'
+        }
+        
+        # Filtrar y contar
+        filtered_words = [word.lower() for word in words if word.lower() not in stopwords and len(word) > 3]
+        analysis['common_terms'] = Counter(filtered_words)
+        
+        return analysis
+        
 class ProductBenchmarkAnalyzer:
     def __init__(self):
         """Inicializa el analizador con stopwords mejoradas"""
