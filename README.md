@@ -133,6 +133,7 @@ Alternativa para análisis de mercado sin restricciones:
 - **🔄 Reintentar bloqueados**: Reintenta URLs que fallan
 - **🚀 Modo agresivo**: Delays más largos para sitios difíciles
 - **🔄 Rotar User-Agents**: Cambia headers entre requests
+- **🛡️ ZenRows**: Usa la API de ZenRows introduciendo tu clave directamente
 
 ### Parámetros Ajustables
 
