@@ -1,231 +1,251 @@
-# 🚀 Guía de Despliegue en Streamlit Cloud
+# 🎯 Análisis Competitivo de Productos
 
-## 📋 Pasos para Desplegar
+## 📋 Descripción
 
-### 1. **Preparar el Repositorio de GitHub**
+Herramienta avanzada de análisis competitivo que extrae y compara información de productos desde múltiples sitios web, identificando oportunidades de mejora y gaps en tu estrategia de producto.
 
-1. **Crear un nuevo repositorio en GitHub:**
-   ```
-   https://github.com/new
-   ```
+## ✨ Características Principales
 
-2. **Estructura de archivos necesaria:**
-   ```
-   tu-repositorio/
-   ├── streamlit_app.py          # Archivo principal (OBLIGATORIO)
-   ├── requirements.txt          # Dependencias
-   ├── README.md                # Documentación
-   ├── .gitignore               # Archivos a ignorar
-   └── .streamlit/
-       └── config.toml          # Configuración de Streamlit
-   ```
+### 🆕 Nuevas Funcionalidades (v2.0)
 
-3. **Subir todos los archivos:**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit - Product Benchmark Tool"
-   git branch -M main
-   git remote add origin https://github.com/TU-USUARIO/TU-REPO.git
-   git push -u origin main
-   ```
+- **🎯 Análisis de GAPS**: Compara tu producto contra la competencia
+- **📊 Detección de Oportunidades**: Identifica características que tienes vs competencia
+- **💰 Análisis de Precios**: Posicionamiento comparativo en el mercado
+- **📈 Visualizaciones Avanzadas**: Heatmaps, gráficos radar, comparaciones visuales
+- **💾 Exportación Mejorada**: CSV completo + análisis de gaps en TXT
 
-### 2. **Configurar Streamlit Cloud**
+### 🔧 Funcionalidades Core
 
-1. **Ir a Streamlit Cloud:**
-   ```
-   https://share.streamlit.io/
-   ```
+- **🔗 Extracción Multi-sitio**: Analiza productos de diferentes tiendas online
+- **🔤 Análisis de Términos**: Identifica palabras clave más relevantes
+- **🎛️ Análisis de Filtros**: Descubre qué filtros usa la competencia
+- **⭐ Análisis de Características**: Extrae features más mencionadas
+- **🛒 Google Shopping**: Análisis de mercado sin restricciones
+- **📊 Visualizaciones Interactivas**: Gráficos con Plotly
+- **☁️ Nube de Palabras**: Visualización de términos clave
 
-2. **Conectar con GitHub:**
-   - Inicia sesión con tu cuenta de GitHub
-   - Autoriza Streamlit Cloud
+## 🚀 Despliegue Rápido en Streamlit Cloud
 
-3. **Crear nueva app:**
-   - Click en "New app"
-   - Selecciona tu repositorio
-   - Branch: `main`
-   - Main file path: `streamlit_app.py`
-   - App URL: `tu-app-name` (personalizable)
+### 1. Fork o Clona el Repositorio
 
-### 3. **Configuración Avanzada**
-
-#### **Variables de Entorno (Opcional)**
-Si necesitas configuraciones especiales, crea `.streamlit/secrets.toml`:
-
-```toml
-# .streamlit/secrets.toml
-[general]
-user_agent = "ProductBenchmarkTool/1.0"
-timeout = 15
-max_retries = 3
-
-[rate_limiting]
-delay_min = 0.5
-delay_max = 5.0
-```
-
-#### **Configuración de Tema**
-El archivo `.streamlit/config.toml` ya está incluido con:
-- Tema personalizado
-- Configuración de servidor
-- Optimizaciones de rendimiento
-
-### 4. **Verificar Dependencias**
-
-El archivo `requirements.txt` incluye todas las librerías necesarias:
-
-```txt
-streamlit==1.28.0
-requests==2.31.0
-beautifulsoup4==4.12.2
-pandas==2.0.3
-nltk==3.8.1
-wordcloud==1.9.2
-matplotlib==3.7.2
-seaborn==0.12.2
-textblob==0.17.1
-plotly==5.17.0
-lxml==4.9.3
-```
-
-### 5. **Proceso de Despliegue**
-
-1. **Automático:** Una vez configurado, Streamlit Cloud:
-   - Detecta cambios en GitHub
-   - Reinstala dependencias si es necesario
-   - Redespliega automáticamente
-
-2. **Tiempo de despliegue:** 2-5 minutos normalmente
-
-3. **URL final:** `https://tu-app-name.streamlit.app`
-
-## 🔧 Solución de Problemas Comunes
-
-### **Error: "Module not found"**
 ```bash
-# Verificar que requirements.txt esté en la raíz
-# Verificar nombres exactos de paquetes
-# Reiniciar el despliegue desde Streamlit Cloud
+git clone https://github.com/tu-usuario/tu-repo.git
+cd tu-repo
 ```
 
-### **Error: "App is taking too long"**
-```python
-# Optimizar el código:
-# - Usar @st.cache_resource para NLTK
-# - Reducir número de requests simultáneos
-# - Añadir timeouts apropiados
+### 2. Estructura de Archivos Requerida
+
+```
+tu-repositorio/
+├── streamlit_app.py          # Archivo principal (OBLIGATORIO)
+├── requirements.txt          # Dependencias
+├── README.md                # Este archivo
+├── .gitignore              # Archivos a ignorar
+└── .streamlit/
+    └── config.toml         # Configuración de Streamlit
 ```
 
-### **Error: "Memory limit exceeded"**
-```python
-# Optimizaciones:
-# - Limitar número de productos analizados
-# - Usar menos features en visualizaciones
-# - Optimizar uso de pandas DataFrames
-```
+### 3. Subir a GitHub
 
-### **Error con NLTK downloads**
-```python
-# El código ya incluye manejo de errores para NLTK
-# Usar stopwords básicas si NLTK falla
-# Verificar conexión a internet en el servidor
-```
-
-## 📊 Monitoreo y Mantenimiento
-
-### **Métricas de Uso**
-Streamlit Cloud proporciona:
-- Número de visitantes
-- Tiempo de uso de la app
-- Errores y logs
-
-### **Logs de Errores**
-- Accesibles desde el panel de Streamlit Cloud
-- Útiles para debuggear problemas de usuarios
-
-### **Actualizaciones**
 ```bash
-# Cualquier push a main actualiza automáticamente
 git add .
-git commit -m "Actualización: nueva funcionalidad"
+git commit -m "feat: análisis competitivo v2.0 con análisis de gaps"
 git push origin main
 ```
 
-## 🎯 Optimizaciones de Rendimiento
+### 4. Desplegar en Streamlit Cloud
 
-### **Caching Estratégico**
-```python
-# Ya implementado en el código:
-@st.cache_resource
-def download_nltk_data():
-    # Cachea descargas de NLTK
-```
+1. Ve a [share.streamlit.io](https://share.streamlit.io/)
+2. Conecta tu cuenta de GitHub
+3. Selecciona tu repositorio
+4. Branch: `main`
+5. Main file: `streamlit_app.py`
+6. Click en "Deploy"
 
-### **Límites Recomendados**
-- **URLs simultáneas:** 5-10 (para evitar timeouts)
-- **Delay entre requests:** 1-2 segundos
-- **Timeout por request:** 15 segundos
+### 5. URL de tu App
 
-### **Gestión de Memoria**
-```python
-# Usar generators para grandes datasets
-# Limpiar variables no usadas
-# Limitar tamaño de DataFrames
-```
-
-## 🔒 Seguridad y Buenas Prácticas
-
-### **Rate Limiting**
-- Implementado delay configurable
-- Headers de User-Agent apropiados
-- Manejo de errores de conexión
-
-### **Respeto a robots.txt**
-```python
-# Considerar añadir verificación de robots.txt
-# Respetar términos de servicio de sitios web
-# No hacer scraping agresivo
-```
-
-### **Privacidad**
-- No almacenar URLs de usuarios
-- No hacer logs de datos sensibles
-- Procesar datos en memoria únicamente
-
-## 📞 Soporte y Recursos
-
-### **Documentación Oficial**
-- [Streamlit Cloud Docs](https://docs.streamlit.io/streamlit-cloud)
-- [Deployment Guide](https://docs.streamlit.io/streamlit-cloud/get-started/deploy-an-app)
-
-### **Comunidad**
-- [Streamlit Forum](https://discuss.streamlit.io/)
-- [GitHub Issues](https://github.com/streamlit/streamlit/issues)
-
-### **Límites de Streamlit Cloud (Plan Gratuito)**
-- **CPU:** Limitado
-- **RAM:** ~1GB
-- **Almacenamiento:** Temporal
-- **Ancho de banda:** Generoso para uso normal
-- **Apps concurrentes:** 3 apps
-
-## 🎉 ¡Listo para Producción!
-
-Una vez desplegado, tu herramienta estará disponible 24/7 en:
 ```
 https://tu-app-name.streamlit.app
 ```
 
-**Próximos pasos sugeridos:**
-1. Probar con diferentes tipos de sitios web
-2. Recopilar feedback de usuarios
-3. Iterar y mejorar funcionalidades
-4. Considerar migrar a plan de pago para más recursos si es necesario
+## 💻 Instalación Local
+
+### Prerrequisitos
+
+- Python 3.8 o superior
+- pip o conda
+
+### Instalación
+
+```bash
+# Clonar repositorio
+git clone https://github.com/tu-usuario/tu-repo.git
+cd tu-repo
+
+# Crear entorno virtual (opcional pero recomendado)
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Ejecutar aplicación
+streamlit run streamlit_app.py
+```
+
+## 📖 Cómo Usar
+
+### 🎯 Flujo de Trabajo Recomendado
+
+1. **URL de Referencia** (Opcional): Ingresa la URL de TU producto para análisis de gaps
+2. **URLs de Competencia**: Añade URLs de productos competidores
+3. **Configuración**: Ajusta parámetros en la barra lateral
+4. **Análisis**: Click en "INICIAR ANÁLISIS"
+5. **Resultados**: Revisa las diferentes pestañas con insights
+6. **Exportar**: Descarga CSV con datos completos o TXT con análisis de gaps
+
+### 📊 Tipos de Análisis Disponibles
+
+#### Análisis de GAPS (NUEVO)
+- Características únicas de la competencia
+- Especificaciones faltantes en tu producto
+- Filtros adicionales que usa la competencia
+- Comparación de precios y posicionamiento
+
+#### Análisis Tradicional
+- **Términos**: Palabras clave más relevantes
+- **Filtros**: Categorías y filtros más comunes
+- **Características**: Features más mencionadas
+- **Precios**: Análisis de rangos y promedios
+- **Visualizaciones**: Gráficos interactivos y comparaciones
+
+### 🛒 Google Shopping
+
+Alternativa para análisis de mercado sin restricciones:
+1. Ingresa término de búsqueda
+2. Selecciona número de resultados
+3. Analiza distribución por tiendas, precios y términos
+
+## ⚙️ Configuración Avanzada
+
+### Opciones Anti-detección
+
+- **🔄 Reintentar bloqueados**: Reintenta URLs que fallan
+- **🚀 Modo agresivo**: Delays más largos para sitios difíciles
+- **🔄 Rotar User-Agents**: Cambia headers entre requests
+
+### Parámetros Ajustables
+
+- **Top N resultados**: Cantidad de elementos a mostrar (5-50)
+- **Delay entre requests**: Tiempo de espera (0.5-5.0 segundos)
+
+## 🌐 Compatibilidad de Sitios
+
+### ✅ Alta Compatibilidad
+- Amazon (amazon.es, amazon.com)
+- eBay (ebay.es, ebay.com)
+- AliExpress
+- Tiendas pequeñas/medianas
+
+### ⚠️ Compatibilidad Media
+- Grandes marketplaces
+- Tiendas con protección básica
+
+### 🚫 Baja Compatibilidad
+- MediaMarkt
+- PCComponentes
+- El Corte Inglés
+- Sitios con Cloudflare/protección avanzada
+
+## 📊 Estructura de Datos Extraídos
+
+```python
+{
+    'url': str,              # URL original
+    'domain': str,           # Dominio del sitio
+    'title': str,            # Título del producto
+    'description': str,      # Descripción
+    'features': list,        # Lista de características
+    'specifications': dict,  # Especificaciones técnicas
+    'price': str,           # Precio encontrado
+    'filters': list,        # Filtros disponibles
+    'categories': list,     # Categorías/breadcrumbs
+    'images': list,         # URLs de imágenes
+    'extracted_at': str     # Timestamp de extracción
+}
+```
+
+## 🔧 Solución de Problemas
+
+### Error: "Module not found"
+```bash
+pip install --upgrade -r requirements.txt
+```
+
+### Error: "Acceso denegado" / 403
+- Activa modo agresivo
+- Aumenta delay entre requests
+- Prueba con sitios alternativos
+- Usa Google Shopping como alternativa
+
+### La app es lenta
+- Reduce número de URLs simultáneas
+- Usa menos opciones de análisis
+- Considera usar caché del navegador
+
+## 🚀 Optimización de Rendimiento
+
+### Para Streamlit Cloud
+
+- **Límites del plan gratuito**:
+  - CPU: Limitado
+  - RAM: ~1GB
+  - Ideal para: <20 URLs simultáneas
+
+### Recomendaciones
+
+1. Analiza en lotes de 5-10 URLs
+2. Usa delays de 2-3 segundos
+3. Activa solo análisis necesarios
+4. Exporta datos para análisis offline
+
+## 📈 Casos de Uso
+
+1. **E-commerce**: Análisis de competencia directa
+2. **Marketing**: Identificación de keywords y tendencias
+3. **Producto**: Detección de features faltantes
+4. **Pricing**: Estrategia de precios competitiva
+5. **SEO**: Optimización de contenido basada en competencia
+
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas:
+
+1. Fork el proyecto
+2. Crea tu feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push al branch (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📝 Licencia
+
+Este proyecto está bajo licencia MIT. Ver `LICENSE` para más información.
+
+## 🆘 Soporte
+
+- 📧 Email: tu-email@ejemplo.com
+- 🐛 Issues: [GitHub Issues](https://github.com/tu-usuario/tu-repo/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/tu-usuario/tu-repo/discussions)
+
+## 🙏 Agradecimientos
+
+- Streamlit por la plataforma
+- BeautifulSoup por el parsing HTML
+- Plotly por las visualizaciones
+- NLTK por el procesamiento de texto
 
 ---
 
-**¿Necesitas ayuda?** 
-- Revisa los logs en Streamlit Cloud
-- Verifica que todos los archivos estén en GitHub
-- Asegúrate de que `streamlit_app.py` esté en la raíz del repo
+**Última actualización**: v2.0 - Análisis de GAPS y mejoras de UI/UX
+
+⭐ Si te resulta útil, considera dar una estrella al repositorio!
